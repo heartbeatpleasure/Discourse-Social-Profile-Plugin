@@ -33,6 +33,23 @@ RSpec.describe DiscourseSocialProfile::PreferencesController do
     expect(DiscourseSocialProfile::Link.find_by(user: other_user, platform: platform)).to be_nil
   end
 
+  it "accepts the JSON array shape sent by the preferences client" do
+    sign_in(user)
+    put "/social-profile/preferences.json",
+        params: { links: [{ platform_id: platform.id, value: "json-user" }] },
+        as: :json
+    expect(response.status).to eq(200)
+    expect(DiscourseSocialProfile::Link.find_by(user: user, platform: platform).value).to eq("json-user")
+  end
+
+  it "accepts the numeric-key compatibility shape from older form-encoded clients" do
+    sign_in(user)
+    put "/social-profile/preferences.json",
+        params: { links: { "0" => { platform_id: platform.id, value: "legacy-client" } } }
+    expect(response.status).to eq(200)
+    expect(DiscourseSocialProfile::Link.find_by(user: user, platform: platform).value).to eq("legacy-client")
+  end
+
   it "also keeps an administrator on self-service ownership" do
     sign_in(admin)
     put "/social-profile/preferences.json", params: { user_id: other_user.id, links: [{ platform_id: platform.id, value: "admin-self" }] }

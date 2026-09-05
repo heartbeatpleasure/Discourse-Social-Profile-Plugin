@@ -1,12 +1,12 @@
 import Component from "@glimmer/component";
 import { array, fn } from "@ember/helper";
-import { service } from "@ember/service";
 import { action } from "@ember/object";
+import { LinkTo } from "@ember/routing";
+import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import SocialProfilePlatformIcon from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platform-icon";
 import DButton from "discourse/ui-kit/d-button";
-import { LinkTo } from "@ember/routing";
-import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { or } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
@@ -59,41 +59,67 @@ export default class SocialProfilePlatformsList extends Component {
     <table class="d-table social-profile-platforms-table">
       <thead>
         <tr class="d-table__row">
-          <th class="d-table__cell">#</th><th class="d-table__cell">Icon</th>
-          <th class="d-table__cell">Platform</th><th class="d-table__cell">Key</th>
-          <th class="d-table__cell">Input</th><th class="d-table__cell">Status</th>
-          <th class="d-table__cell">Users</th><th class="d-table__cell"></th>
+          <th class="d-table__cell --icon">Icon</th>
+          <th class="d-table__cell --platform">Platform</th>
+          <th class="d-table__cell --key">Key</th>
+          <th class="d-table__cell --input">Input</th>
+          <th class="d-table__cell --status">Status</th>
+          <th class="d-table__cell --users">Users</th>
+          <th class="d-table__cell --controls"></th>
         </tr>
       </thead>
       <tbody>
         {{#each @platforms as |platform index|}}
           <tr class="d-table__row">
-            <td class="d-table__cell">{{platform.position}}</td>
-            <td class="d-table__cell">
-              {{#if platform.resolved_icon_image_url}}
-                <img src={{platform.resolved_icon_image_url}} alt="" width="20" height="20" referrerpolicy="no-referrer" />
-              {{else if platform.resolved_icon_mask_url}}
-                <span title="Custom mask">{{dIcon "image"}}</span>
-              {{else}}
-                {{dIcon (or platform.icon_name "globe")}}
-              {{/if}}
+            <td class="d-table__cell --icon">
+              <SocialProfilePlatformIcon
+                @imageUrl={{platform.resolved_icon_image_url}}
+                @maskUrl={{platform.resolved_icon_mask_url}}
+                @iconName={{or platform.icon_name "globe"}}
+              />
             </td>
-            <td class="d-table__cell">
-              <LinkTo @route="adminPlugins.show.discourse-social-profile-platforms.edit" @model={{platform.id}}>{{platform.label}}</LinkTo>
+            <td class="d-table__cell --platform">
+              <LinkTo
+                @route="adminPlugins.show.discourse-social-profile-platforms.edit"
+                @model={{platform.id}}
+              >{{platform.label}}</LinkTo>
             </td>
-            <td class="d-table__cell"><code>{{platform.key}}</code></td>
-            <td class="d-table__cell">{{platform.input_type}}</td>
-            <td class="d-table__cell">
-              {{if platform.enabled (i18n "discourse_social_profile.admin.platforms.enabled") (i18n "discourse_social_profile.admin.platforms.disabled")}}
+            <td class="d-table__cell --key"><code>{{platform.key}}</code></td>
+            <td class="d-table__cell --input">{{platform.input_type}}</td>
+            <td class="d-table__cell --status">
+              {{if
+                platform.enabled
+                (i18n "discourse_social_profile.admin.platforms.enabled")
+                (i18n "discourse_social_profile.admin.platforms.disabled")
+              }}
             </td>
-            <td class="d-table__cell">{{platform.usage_count}}</td>
+            <td class="d-table__cell --users">{{platform.usage_count}}</td>
             <td class="d-table__cell --controls">
               <div class="d-table__cell-actions">
-                <DButton @action={{fn this.move index -1}} @icon="arrow-up" @title="discourse_social_profile.admin.platforms.move_up" class="btn-small btn-flat" />
-                <DButton @action={{fn this.move index 1}} @icon="arrow-down" @title="discourse_social_profile.admin.platforms.move_down" class="btn-small btn-flat" />
-                <DButton @route="adminPlugins.show.discourse-social-profile-platforms.edit" @routeModels={{array platform.id}} @icon="pencil" class="btn-small btn-default" />
+                <DButton
+                  @action={{fn this.move index -1}}
+                  @icon="arrow-up"
+                  @title="discourse_social_profile.admin.platforms.move_up"
+                  class="btn-small btn-flat"
+                />
+                <DButton
+                  @action={{fn this.move index 1}}
+                  @icon="arrow-down"
+                  @title="discourse_social_profile.admin.platforms.move_down"
+                  class="btn-small btn-flat"
+                />
+                <DButton
+                  @route="adminPlugins.show.discourse-social-profile-platforms.edit"
+                  @routeModels={{array platform.id}}
+                  @icon="pencil"
+                  class="btn-small btn-default"
+                />
                 {{#unless platform.usage_count}}
-                  <DButton @action={{fn this.remove platform}} @icon="trash-can" class="btn-small btn-danger" />
+                  <DButton
+                    @action={{fn this.remove platform}}
+                    @icon="trash-can"
+                    class="btn-small btn-danger"
+                  />
                 {{/unless}}
               </div>
             </td>

@@ -94,8 +94,21 @@ module ::DiscourseSocialProfile
 
     def raw_links
       raw = params[:links]
-      raise ActionController::BadRequest, "links must be an array" unless raw.is_a?(Array)
-      raw
+      return raw if raw.is_a?(Array)
+
+      # jQuery-style form encoding serializes an array of objects as
+      # links[0][platform_id]=... . Rails parses that shape as an
+      # ActionController::Parameters object keyed by numeric indexes. Accept it
+      # as a compatibility fallback for stale/cached clients; the current
+      # frontend sends JSON and therefore arrives as a real Array.
+      if raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
+        keys = raw.keys.map(&:to_s)
+        if keys.all? { |key| key.match?(/\A\d+\z/) }
+          return keys.sort_by(&:to_i).map { |key| raw[key] || raw[key.to_sym] }
+        end
+      end
+
+      raise ActionController::BadRequest, "links must be an array"
     end
 
     def permitted_links(raw)

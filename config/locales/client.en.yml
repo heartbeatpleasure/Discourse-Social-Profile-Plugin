@@ -10,6 +10,7 @@ en:
         preview: "Preview"
       admin:
         title: "Social Profiles"
+        back_to_overview: "Back to overview"
         dashboard:
           description: "Manage native social profile links, platform definitions, secure validation and privacy-friendly statistics."
           open_settings: "Open settings"

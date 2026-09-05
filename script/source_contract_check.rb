@@ -242,6 +242,23 @@ check(checks, "Valid full-URL parity plus redirector hardening") do
   assert(b.include?("redirector_like?") && b.include?("MAX_REDIRECT_DECODE_PASSES"), "redirector hardening missing")
 end
 
+check(checks, "Preferences JSON save and bounded icon previews") do
+  controller = read("assets/javascripts/discourse/controllers/preferences/social-profiles.js")
+  template = read("assets/javascripts/discourse/templates/preferences/social-profiles.gjs")
+  icon = read("assets/javascripts/discourse/components/social-profile-platform-icon.gjs")
+  assert(controller.include?('contentType: "application/json"') && controller.include?("JSON.stringify"), "preferences save is not JSON encoded")
+  assert(template.include?("SocialProfilePlatformIcon"), "shared platform icon component not used in preferences")
+  assert(icon.include?('width="24"') && icon.include?("width:24px") && icon.include?("mask:url"), "icon preview bounds/mask rendering missing")
+end
+
+check(checks, "Admin platform table uses real icons and overview actions") do
+  table = read("admin/assets/javascripts/discourse/components/social-profile-platforms-list.gjs")
+  page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-platforms/index.gjs")
+  assert(table.include?("SocialProfilePlatformIcon"), "admin table does not render shared platform icons")
+  assert(!table.include?(">#</th>"), "obsolete position column still rendered")
+  assert(page.include?("/admin/plugins/social-profile") && page.include?("back_to_overview"), "platform overview action missing")
+end
+
 check(checks, "Malformed request payloads fail closed") do
   prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
   admin = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
@@ -274,7 +291,7 @@ end
 
 check(checks, "Database constraints and migration count") do
   migrations = Dir[ROOT.join("db/migrate/*.rb")]
-  assert(migrations.length == 4, "expected 4 migrations including seed")
+  assert(migrations.length == 5, "expected 5 migrations including seed and guidance update")
   links = read("db/migrate/20260905000200_create_discourse_social_profile_links.rb")
   clicks = read("db/migrate/20260905000300_create_discourse_social_profile_click_stats.rb")
   assert(links.include?("unique: true") && links.include?("on_delete: :cascade") && links.include?("on_delete: :restrict"), "link constraints missing")

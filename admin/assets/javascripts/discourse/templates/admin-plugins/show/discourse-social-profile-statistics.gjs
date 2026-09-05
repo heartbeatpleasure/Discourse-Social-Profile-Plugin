@@ -1,13 +1,28 @@
 import AdminConfigAreaCard from "discourse/admin/components/admin-config-area-card";
+import getURL from "discourse/lib/get-url";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
+
+const overviewUrl = getURL("/admin/plugins/social-profile");
+const settingsUrl = getURL(
+  "/admin/site_settings/category/all_results?filter=discourse_social_profile"
+);
 
 export default <template>
   <section class="admin-detail">
     <DPageSubheader
       @titleLabel={{i18n "discourse_social_profile.admin.statistics.title"}}
       @descriptionLabel={{i18n "discourse_social_profile.admin.statistics.description"}}
-    />
+    >
+      <:actions>
+        <a class="btn" href={{overviewUrl}}>
+          {{i18n "discourse_social_profile.admin.back_to_overview"}}
+        </a>
+        <a class="btn" href={{settingsUrl}}>
+          {{i18n "discourse_social_profile.admin.dashboard.open_settings"}}
+        </a>
+      </:actions>
+    </DPageSubheader>
 
     <div class="admin-config-area">
       <div class="admin-config-area__primary-content">

@@ -38,12 +38,13 @@ export default class PreferencesSocialProfilesController extends Controller {
     try {
       const response = await ajax("/social-profile/preferences.json", {
         type: "PUT",
-        data: {
+        contentType: "application/json",
+        data: JSON.stringify({
           links: (this.model?.platforms || []).map((platform) => ({
             platform_id: platform.id,
             value: this.values[platform.id] || "",
           })),
-        },
+        }),
       });
       this.model = response;
       this.setupValues();
