@@ -1,0 +1,32 @@
+en:
+  js:
+    discourse_social_profile:
+      preferences:
+        title: "Social Profiles"
+        description: "Add the social profiles you want to show on your Discourse profile and user card."
+        save: "Save social profiles"
+        saved: "Social profiles saved."
+        invalid: "This value is invalid"
+        preview: "Preview"
+      admin:
+        title: "Social Profiles"
+        overview:
+          title: "Overview"
+          description: "Plugin status and configuration health."
+        platforms:
+          title: "Platforms"
+          description: "Manage social platforms, validation rules, icons and presentation."
+          add: "Add platform"
+          create: "Create platform"
+          edit: "Edit platform"
+          back: "Back to platforms"
+          saved: "Platform saved."
+          enabled: "Enabled"
+          disabled: "Disabled"
+          move_up: "Move up"
+          move_down: "Move down"
+          test_value: "Test value"
+          delete_confirm: "Delete %{label}? This is only possible when no user values exist."
+        statistics:
+          title: "Statistics"
+          description: "Privacy-friendly adoption and aggregate click statistics."

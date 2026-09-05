@@ -1,0 +1,32 @@
+plugins:
+  discourse_social_profile_enabled:
+    default: false
+    client: true
+  discourse_social_profile_show_on_profile:
+    default: true
+    client: true
+  discourse_social_profile_show_on_user_card:
+    default: true
+    client: true
+  discourse_social_profile_icon_color:
+    default: "black"
+    client: true
+  discourse_social_profile_icon_color_dark:
+    default: ""
+    client: true
+  discourse_social_profile_use_platform_colors:
+    default: false
+    client: true
+  discourse_social_profile_allow_external_icon_urls:
+    default: false
+  discourse_social_profile_track_clicks:
+    default: false
+    client: true
+  discourse_social_profile_click_stats_retention_days:
+    default: 365
+    type: integer
+    min: 30
+    max: 3650
+  discourse_social_profile_extra_svg_icons:
+    default: ""
+    type: list

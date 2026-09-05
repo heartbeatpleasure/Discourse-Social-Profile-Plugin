@@ -1,0 +1,18 @@
+en:
+  site_settings:
+    discourse_social_profile_enabled: "Enable the Social Profile plugin."
+    discourse_social_profile_show_on_profile: "Show social profile icons on full user profiles."
+    discourse_social_profile_show_on_user_card: "Show social profile icons on user cards."
+    discourse_social_profile_icon_color: "Global social icon color for light mode."
+    discourse_social_profile_icon_color_dark: "Optional global social icon color for dark mode; falls back to the light color."
+    discourse_social_profile_use_platform_colors: "Use per-platform light/dark icon colors when configured."
+    discourse_social_profile_allow_external_icon_urls: "Allow administrator-configured external HTTPS icon URLs. Native uploads are safer and preferred."
+    discourse_social_profile_track_clicks: "Track privacy-minimal aggregate clicks per platform/day. Disabled by default."
+    discourse_social_profile_click_stats_retention_days: "Days to keep aggregate click statistics."
+    discourse_social_profile_extra_svg_icons: "Additional Discourse SVG icon names used by custom social platforms."
+  discourse_social_profile:
+    errors:
+      platform_change_invalidates_links: "This validation change would invalidate one or more existing user links. Disable the platform or correct those values first."
+      platform_in_use: "This platform is in use and cannot be deleted. Disable it instead."
+      invalid_reorder: "The platform order is invalid or incomplete."
+      invalid_icon_upload: "The icon upload is missing, private, or not owned by the current administrator."
