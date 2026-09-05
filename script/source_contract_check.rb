@@ -184,7 +184,7 @@ end
 check(checks, "Discourse 2026.7 stable API compatibility") do
   plugin = read("plugin.rb")
   admin = read("assets/javascripts/discourse/admin-social-profile-plugin-route-map.js")
-  nav = read("admin/assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
+  nav = read("assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
   assert(plugin.include?("# required_version: 2026.7.2"), "required_version drift")
   assert(plugin.include?("use_new_show_route: true"), "modern admin route missing")
   assert(admin.include?('resource: "admin.adminPlugins.show"'), "modern route map missing")
@@ -193,7 +193,7 @@ end
 
 check(checks, "Admin plugin identity matches canonical GitHub install directory") do
   plugin = read("plugin.rb")
-  nav = read("admin/assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
+  nav = read("assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
   identity = "Discourse-Social-Profile-Plugin"
   assert(plugin.include?("# name: #{identity}"), "metadata identity drift")
   assert(plugin.include?(%(PLUGIN_NAME = "#{identity}")), "requires_plugin identity drift")
@@ -202,6 +202,16 @@ check(checks, "Admin plugin identity matches canonical GitHub install directory"
   assert(admin_route&.include?("use_new_show_route: true"), "new-show admin route flag missing")
   assert(nav.include?(%(const PLUGIN_ID = "#{identity}";)), "admin navigation identity drift")
   assert(nav.index('route: "adminPlugins.show.discourse-social-profile-overview"') < nav.index('route: "adminPlugins.show.discourse-social-profile-platforms"'), "overview must remain first custom admin route")
+end
+
+check(checks, "Admin landing page is the dashboard before settings") do
+  overview = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-overview.gjs")
+  legacy_nav = read("admin/assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
+  assert(overview.include?("social-profile-admin-dashboard__grid"), "dashboard card grid missing")
+  assert(overview.include?("/admin/plugins/Discourse-Social-Profile-Plugin/settings"), "dashboard settings destination missing")
+  assert(overview.include?("/admin/plugins/Discourse-Social-Profile-Plugin/platforms"), "dashboard platforms destination missing")
+  assert(overview.include?("/admin/plugins/Discourse-Social-Profile-Plugin/statistics"), "dashboard statistics destination missing")
+  assert(legacy_nav.include?("legacy-stub") && !legacy_nav.include?("addAdminPluginConfigurationNav"), "legacy admin initializer must not double-register navigation")
 end
 
 check(checks, "URL and identifier canonicalization follows parity contract") do
