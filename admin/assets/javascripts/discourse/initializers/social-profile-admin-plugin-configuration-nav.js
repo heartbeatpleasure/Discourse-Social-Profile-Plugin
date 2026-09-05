@@ -1,6 +1,6 @@
 import { withPluginApi } from "discourse/lib/plugin-api";
 
-const PLUGIN_ID = "discourse-social-profile";
+const PLUGIN_ID = "Discourse-Social-Profile-Plugin";
 
 export default {
   name: "social-profile-admin-plugin-configuration-nav",

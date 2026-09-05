@@ -93,7 +93,8 @@ end
 check(checks, "Plugin public asset base") do
   plugin = read("plugin.rb")
   model = read("app/models/discourse_social_profile/platform.rb")
-  assert(plugin.include?('PLUGIN_NAME = "discourse-social-profile"'), "metadata name mismatch")
+  assert(plugin.include?('# name: Discourse-Social-Profile-Plugin'), "plugin metadata must match canonical GitHub install directory")
+  assert(plugin.include?('PLUGIN_NAME = "Discourse-Social-Profile-Plugin"'), "runtime plugin identity mismatch")
   assert(model.include?("Discourse.base_path") && model.include?("PUBLIC_ASSET_BASE"), "subfolder-safe asset path absent")
 end
 
@@ -188,6 +189,16 @@ check(checks, "Discourse 2026.7 stable API compatibility") do
   assert(plugin.include?("use_new_show_route: true"), "modern admin route missing")
   assert(admin.include?('resource: "admin.adminPlugins.show"'), "modern route map missing")
   assert(nav.include?("addAdminPluginConfigurationNav"), "modern plugin nav missing")
+end
+
+check(checks, "Admin plugin identity matches canonical GitHub install directory") do
+  plugin = read("plugin.rb")
+  nav = read("admin/assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
+  identity = "Discourse-Social-Profile-Plugin"
+  assert(plugin.include?("# name: #{identity}"), "metadata identity drift")
+  assert(plugin.include?(%(PLUGIN_NAME = "#{identity}")), "requires_plugin identity drift")
+  assert(nav.include?(%(const PLUGIN_ID = "#{identity}";)), "admin navigation identity drift")
+  assert(nav.index('route: "adminPlugins.show.discourse-social-profile-overview"') < nav.index('route: "adminPlugins.show.discourse-social-profile-platforms"'), "overview must remain first custom admin route")
 end
 
 check(checks, "URL and identifier canonicalization follows parity contract") do
