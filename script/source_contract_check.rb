@@ -197,6 +197,9 @@ check(checks, "Admin plugin identity matches canonical GitHub install directory"
   identity = "Discourse-Social-Profile-Plugin"
   assert(plugin.include?("# name: #{identity}"), "metadata identity drift")
   assert(plugin.include?(%(PLUGIN_NAME = "#{identity}")), "requires_plugin identity drift")
+  admin_route = plugin[/add_admin_route\(.*?\n\)/m]
+  assert(admin_route&.include?(%("#{identity}")), "new-show admin route location must match canonical plugin ID")
+  assert(admin_route&.include?("use_new_show_route: true"), "new-show admin route flag missing")
   assert(nav.include?(%(const PLUGIN_ID = "#{identity}";)), "admin navigation identity drift")
   assert(nav.index('route: "adminPlugins.show.discourse-social-profile-overview"') < nav.index('route: "adminPlugins.show.discourse-social-profile-platforms"'), "overview must remain first custom admin route")
 end
