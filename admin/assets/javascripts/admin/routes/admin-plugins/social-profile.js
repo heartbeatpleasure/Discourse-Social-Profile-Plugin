@@ -3,8 +3,15 @@ import DiscourseRoute from "discourse/routes/discourse";
 import { i18n } from "discourse-i18n";
 
 export default class AdminPluginsSocialProfileRoute extends DiscourseRoute {
-  model() {
-    return ajax("/admin/plugins/discourse-social-profile/overview.json");
+  async model() {
+    try {
+      return await ajax("/admin/plugins/discourse-social-profile/overview.json");
+    } catch {
+      // The dashboard is primarily a navigation page. Keep Settings, Platforms
+      // and Statistics reachable even when the optional live overview payload
+      // cannot be loaded.
+      return null;
+    }
   }
 
   titleToken() {

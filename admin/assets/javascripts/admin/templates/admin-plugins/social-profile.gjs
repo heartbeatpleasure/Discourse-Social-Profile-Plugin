@@ -141,32 +141,34 @@ export default RouteTemplate(
         </a>
       </section>
 
-      <section class="sp-admin__section">
-        <div>
-          <h2>{{i18n "discourse_social_profile.admin.dashboard.current_status"}}</h2>
-          <p class="sp-admin__muted">{{i18n "discourse_social_profile.admin.dashboard.current_status_description"}}</p>
-        </div>
-        <div class="sp-admin__status-row">
-          <div class="sp-admin__metric">
-            <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.status"}}</div>
-            <div class="sp-admin__metric-value">
-              {{if @model.enabled (i18n "discourse_social_profile.admin.dashboard.enabled") (i18n "discourse_social_profile.admin.dashboard.disabled")}}
+      {{#if @model}}
+        <section class="sp-admin__section">
+          <div>
+            <h2>{{i18n "discourse_social_profile.admin.dashboard.current_status"}}</h2>
+            <p class="sp-admin__muted">{{i18n "discourse_social_profile.admin.dashboard.current_status_description"}}</p>
+          </div>
+          <div class="sp-admin__status-row">
+            <div class="sp-admin__metric">
+              <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.status"}}</div>
+              <div class="sp-admin__metric-value">
+                {{if @model.enabled (i18n "discourse_social_profile.admin.dashboard.enabled") (i18n "discourse_social_profile.admin.dashboard.disabled")}}
+              </div>
+            </div>
+            <div class="sp-admin__metric">
+              <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.platforms"}}</div>
+              <div class="sp-admin__metric-value">{{@model.platform_count}}</div>
+            </div>
+            <div class="sp-admin__metric">
+              <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.enabled_platforms"}}</div>
+              <div class="sp-admin__metric-value">{{@model.enabled_platform_count}}</div>
+            </div>
+            <div class="sp-admin__metric">
+              <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.social_links"}}</div>
+              <div class="sp-admin__metric-value">{{@model.total_links}}</div>
             </div>
           </div>
-          <div class="sp-admin__metric">
-            <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.platforms"}}</div>
-            <div class="sp-admin__metric-value">{{@model.platform_count}}</div>
-          </div>
-          <div class="sp-admin__metric">
-            <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.enabled_platforms"}}</div>
-            <div class="sp-admin__metric-value">{{@model.enabled_platform_count}}</div>
-          </div>
-          <div class="sp-admin__metric">
-            <div class="sp-admin__metric-label">{{i18n "discourse_social_profile.admin.dashboard.social_links"}}</div>
-            <div class="sp-admin__metric-value">{{@model.total_links}}</div>
-          </div>
-        </div>
-      </section>
+        </section>
+      {{/if}}
 
       <section class="sp-admin__section">
         <div>
