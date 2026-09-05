@@ -3,19 +3,19 @@ import { apiInitializer } from "discourse/lib/api";
 import getURL from "discourse/lib/get-url";
 
 /**
- * The Social Profile plugin deliberately uses a dashboard as its admin entry
- * point. On the Installed Plugins page, route this plugin's Settings control
- * to that dashboard as well. The actual Site Settings remain available from
- * the dashboard's Open settings button/card.
+ * Keep Installed Plugins -> Settings separate from the plugin dashboard.
  *
- * The exact data-plugin-setting-button selector is provided by current
- * Discourse. The plugin-card fallback mirrors the compatibility approach used
- * by the other working custom admin plugins on this installation.
+ * This mirrors the working HIBP, Link Safety and Disify plugins: the admin
+ * sidebar opens the plugin-owned dashboard, while the Settings control on
+ * /admin/plugins opens the generated Site Settings page through the stable
+ * setting-key prefix.
  */
 export default apiInitializer("0.11.1", (api) => {
   const PLUGIN_DISPLAY_NAME = "Discourse-Social-Profile-Plugin";
   const ADMIN_PLUGINS_PATH = getURL("/admin/plugins");
-  const OVERVIEW_URL = getURL("/admin/plugins/social-profile");
+  const FIXED_SETTINGS_URL = getURL(
+    "/admin/site_settings/category/all_results?filter=discourse_social_profile"
+  );
   const SETTINGS_BUTTON_SELECTOR =
     `[data-plugin-setting-button="${PLUGIN_DISPLAY_NAME}"]`;
 
@@ -23,9 +23,7 @@ export default apiInitializer("0.11.1", (api) => {
   let clickHandlerInstalled = false;
 
   function normalizedPath(url) {
-    return (url || "")
-      .split("?")[0]
-      .replace(/\/+$/, "");
+    return (url || "").split("?")[0].replace(/\/+$/, "");
   }
 
   function isInstalledPluginsPage(url) {
@@ -61,20 +59,18 @@ export default apiInitializer("0.11.1", (api) => {
     }
 
     return Boolean(
-      card.querySelector?.(
-        'a[href*="Discourse-Social-Profile-Plugin"]'
-      )
+      card.querySelector?.('a[href*="Discourse-Social-Profile-Plugin"]')
     );
   }
 
   function rewriteExactSettingsButtons() {
     for (const button of document.querySelectorAll(SETTINGS_BUTTON_SELECTOR)) {
-      if (button.dataset.socialProfileOverviewFixed === "1") {
+      if (button.dataset.socialProfileSettingsFixed === "1") {
         continue;
       }
 
-      button.setAttribute("href", OVERVIEW_URL);
-      button.dataset.socialProfileOverviewFixed = "1";
+      button.setAttribute("href", FIXED_SETTINGS_URL);
+      button.dataset.socialProfileSettingsFixed = "1";
     }
   }
 
@@ -83,19 +79,17 @@ export default apiInitializer("0.11.1", (api) => {
       return;
     }
 
-    const candidates = Array.from(
-      card.querySelectorAll(
-        'a[href*="/admin/site_settings"], a[href*="/admin/plugins/"][data-plugin-setting-button]'
-      )
+    const anchors = Array.from(
+      card.querySelectorAll('a[href*="/admin/site_settings"]')
     );
 
-    for (const control of candidates) {
-      if (control.dataset.socialProfileOverviewFixed === "1") {
+    for (const anchor of anchors) {
+      if (anchor.dataset.socialProfileSettingsFixed === "1") {
         continue;
       }
 
-      control.setAttribute("href", OVERVIEW_URL);
-      control.dataset.socialProfileOverviewFixed = "1";
+      anchor.setAttribute("href", FIXED_SETTINGS_URL);
+      anchor.dataset.socialProfileSettingsFixed = "1";
     }
   }
 
@@ -129,7 +123,7 @@ export default apiInitializer("0.11.1", (api) => {
         if (exactControl) {
           event.preventDefault();
           event.stopPropagation();
-          window.location.assign(OVERVIEW_URL);
+          window.location.assign(FIXED_SETTINGS_URL);
           return;
         }
 
@@ -137,7 +131,6 @@ export default apiInitializer("0.11.1", (api) => {
           target.closest?.(
             'a[href*="/admin/site_settings"], button, .btn, .d-button'
           ) || target;
-
         const label = `${control.getAttribute?.("aria-label") || ""} ${
           control.getAttribute?.("title") || ""
         }`;
@@ -157,7 +150,7 @@ export default apiInitializer("0.11.1", (api) => {
 
         event.preventDefault();
         event.stopPropagation();
-        window.location.assign(OVERVIEW_URL);
+        window.location.assign(FIXED_SETTINGS_URL);
       },
       true
     );

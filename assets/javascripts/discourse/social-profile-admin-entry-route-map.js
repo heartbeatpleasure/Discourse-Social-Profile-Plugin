@@ -1,5 +1,3 @@
-import "./api-initializers/social-profile-settings-button-overview";
-
 export default {
   resource: "admin.adminPlugins",
   path: "/plugins",

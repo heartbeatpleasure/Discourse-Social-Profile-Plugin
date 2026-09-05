@@ -1,35 +1,9 @@
-import { withPluginApi } from "discourse/lib/plugin-api";
-
-const PLUGIN_ID = "Discourse-Social-Profile-Plugin";
-
+// Social Profile uses the same standalone admin landing pattern as the working
+// HIBP, Link Safety, Heartrate and Disify plugins. Do not register modern
+// adminPlugins.show configuration navigation here: the admin sidebar must point
+// at adminPlugins.socialProfile, while Installed Plugins -> Settings stays a
+// direct Site Settings link.
 export default {
-  name: "social-profile-admin-plugin-configuration-nav",
-
-  initialize(container) {
-    const currentUser = container.lookup("service:current-user");
-    if (!currentUser?.admin) {
-      return;
-    }
-
-    withPluginApi((api) => {
-      api.setAdminPluginIcon(PLUGIN_ID, "address-card");
-      api.addAdminPluginConfigurationNav(PLUGIN_ID, [
-        {
-          label: "discourse_social_profile.admin.overview.title",
-          route: "adminPlugins.show.discourse-social-profile-overview",
-          description: "discourse_social_profile.admin.overview.description",
-        },
-        {
-          label: "discourse_social_profile.admin.platforms.title",
-          route: "adminPlugins.show.discourse-social-profile-platforms",
-          description: "discourse_social_profile.admin.platforms.description",
-        },
-        {
-          label: "discourse_social_profile.admin.statistics.title",
-          route: "adminPlugins.show.discourse-social-profile-statistics",
-          description: "discourse_social_profile.admin.statistics.description",
-        },
-      ]);
-    });
-  },
+  name: "social-profile-admin-plugin-configuration-nav-disabled",
+  initialize() {},
 };

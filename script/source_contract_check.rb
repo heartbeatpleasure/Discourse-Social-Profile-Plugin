@@ -183,12 +183,15 @@ end
 
 check(checks, "Discourse 2026.7 stable admin compatibility") do
   plugin = read("plugin.rb")
-  landing_map = read("admin/assets/javascripts/admin/social-profile-route-map.js")
+  admin_landing_map = read("admin/assets/javascripts/admin/social-profile-route-map.js")
+  main_landing_map = read("assets/javascripts/discourse/social-profile-admin-entry-route-map.js")
   nested_map = read("assets/javascripts/discourse/admin-social-profile-plugin-route-map.js")
   assert(plugin.include?("# required_version: 2026.7.2"), "required_version drift")
   assert(plugin.include?('add_admin_route "discourse_social_profile.admin.title", "socialProfile"'), "standalone admin landing route missing")
-  assert(landing_map.include?('resource: "admin.adminPlugins"'), "standalone admin resource missing")
-  assert(landing_map.include?('this.route("socialProfile", { path: "/social-profile" })'), "standalone dashboard path missing")
+  [admin_landing_map, main_landing_map].each do |landing_map|
+    assert(landing_map.include?('resource: "admin.adminPlugins"'), "standalone admin resource missing")
+    assert(landing_map.include?('this.route("socialProfile", { path: "/social-profile" })'), "standalone dashboard path missing")
+  end
   assert(nested_map.include?('resource: "admin.adminPlugins.show"'), "existing nested platform/statistics routes missing")
 end
 
@@ -202,18 +205,23 @@ check(checks, "Admin plugin identity remains canonical while landing routing is 
   assert(fixer.include?("data-plugin-setting-button"), "exact current Discourse settings-button selector missing")
 end
 
-check(checks, "Admin landing page is the dashboard before settings") do
+check(checks, "Admin sidebar dashboard and Installed Plugins Settings stay separate") do
   plugin = read("plugin.rb")
   route = read("admin/assets/javascripts/admin/routes/admin-plugins/social-profile.js")
   overview = read("admin/assets/javascripts/admin/templates/admin-plugins/social-profile.gjs")
   fixer = read("admin/assets/javascripts/admin/api-initializers/social-profile-settings-button-overview.js")
+  nav_initializer = read("assets/javascripts/discourse/initializers/social-profile-admin-plugin-configuration-nav.js")
+
   assert(plugin.include?('get "/admin/plugins/social-profile" => "admin/plugins#index"'), "direct-reload Rails fallback missing")
   assert(route.include?("/admin/plugins/discourse-social-profile/overview.json"), "dashboard model endpoint missing")
   assert(overview.include?("sp-admin__grid"), "dashboard card grid missing")
   assert(overview.include?("/admin/site_settings/category/all_results?filter=discourse_social_profile"), "dashboard settings destination missing")
   assert(overview.include?("/admin/plugins/Discourse-Social-Profile-Plugin/platforms"), "dashboard platforms destination missing")
   assert(overview.include?("/admin/plugins/Discourse-Social-Profile-Plugin/statistics"), "dashboard statistics destination missing")
-  assert(fixer.include?('OVERVIEW_URL = getURL("/admin/plugins/social-profile")'), "Installed Plugins Settings must land on dashboard")
+  assert(fixer.include?("FIXED_SETTINGS_URL"), "Installed Plugins Settings fixer missing")
+  assert(fixer.include?("filter=discourse_social_profile"), "Installed Plugins Settings must use stable setting prefix")
+  assert(!fixer.include?("OVERVIEW_URL"), "Installed Plugins Settings must not route to dashboard")
+  assert(!nav_initializer.include?("addAdminPluginConfigurationNav"), "modern show-route nav must not control standalone landing")
 end
 
 check(checks, "URL and identifier canonicalization follows parity contract") do
