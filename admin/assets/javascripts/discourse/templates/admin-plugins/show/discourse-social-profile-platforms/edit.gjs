@@ -1,5 +1,5 @@
 import BackButton from "discourse/components/back-button";
-import SocialProfilePlatformEditor from "discourse/plugins/discourse-social-profile/discourse/components/social-profile-platform-editor";
+import SocialProfilePlatformEditor from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platform-editor";
 
 export default <template>
   <BackButton

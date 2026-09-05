@@ -5,9 +5,10 @@ import getURL from "discourse/lib/get-url";
 /**
  * Keep Installed Plugins -> Settings separate from the plugin dashboard.
  *
- * This mirrors the working HIBP and Link Safety plugins: the admin sidebar
- * opens the plugin-owned dashboard, while the Settings control under
- * /admin/plugins opens Site Settings through the stable setting-key prefix.
+ * This mirrors the working HIBP, Link Safety and Disify plugins: the admin
+ * sidebar opens the plugin-owned dashboard, while the Settings control on
+ * /admin/plugins opens the generated Site Settings page through the stable
+ * setting-key prefix.
  */
 export default apiInitializer("0.11.1", (api) => {
   const PLUGIN_DISPLAY_NAME = "Discourse-Social-Profile-Plugin";
@@ -20,6 +21,14 @@ export default apiInitializer("0.11.1", (api) => {
 
   let observer = null;
   let clickHandlerInstalled = false;
+
+  function normalizedPath(url) {
+    return (url || "").split("?")[0].replace(/\/+$/, "");
+  }
+
+  function isInstalledPluginsPage(url) {
+    return normalizedPath(url) === normalizedPath(ADMIN_PLUGINS_PATH);
+  }
 
   function findPluginCards() {
     return Array.from(document.querySelectorAll("[data-plugin-name]")).concat(
@@ -101,7 +110,7 @@ export default apiInitializer("0.11.1", (api) => {
     document.addEventListener(
       "click",
       (event) => {
-        if (!window.location?.pathname?.startsWith(ADMIN_PLUGINS_PATH)) {
+        if (!isInstalledPluginsPage(window.location?.pathname)) {
           return;
         }
 
@@ -162,14 +171,14 @@ export default apiInitializer("0.11.1", (api) => {
   }
 
   api.onPageChange((url) => {
-    if (url?.startsWith(ADMIN_PLUGINS_PATH)) {
+    if (isInstalledPluginsPage(url)) {
       start();
     } else {
       stop();
     }
   });
 
-  if (window.location?.pathname?.startsWith(ADMIN_PLUGINS_PATH)) {
+  if (isInstalledPluginsPage(window.location?.pathname)) {
     start();
   }
 });

@@ -1,5 +1,5 @@
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
-import SocialProfilePlatformsList from "discourse/plugins/discourse-social-profile/discourse/components/social-profile-platforms-list";
+import SocialProfilePlatformsList from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platforms-list";
 import { i18n } from "discourse-i18n";
 
 export default <template>
