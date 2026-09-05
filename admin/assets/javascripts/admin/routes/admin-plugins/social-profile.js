@@ -1,0 +1,13 @@
+import { ajax } from "discourse/lib/ajax";
+import DiscourseRoute from "discourse/routes/discourse";
+import { i18n } from "discourse-i18n";
+
+export default class AdminPluginsSocialProfileRoute extends DiscourseRoute {
+  async model() {
+    return await ajax("/admin/plugins/discourse-social-profile/overview.json");
+  }
+
+  titleToken() {
+    return i18n("discourse_social_profile.admin.title");
+  }
+}

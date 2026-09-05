@@ -2,7 +2,7 @@
 
 # name: Discourse-Social-Profile-Plugin
 # about: Native social profile links for Discourse with plugin-owned data, secure validation, admin management and statistics.
-# version: 0.1.3
+# version: 0.1.4
 # authors: Chris
 # url: https://github.com/heartbeatpleasure/Discourse-Social-Profile-Plugin
 # required_version: 2026.7.2
@@ -12,15 +12,15 @@ enabled_site_setting :discourse_social_profile_enabled
 register_asset "stylesheets/common/social-profile.scss"
 register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
-add_admin_route(
-  "discourse_social_profile.admin.title",
-  "Discourse-Social-Profile-Plugin",
-  use_new_show_route: true,
-)
+# Use the proven standalone admin-route pattern used by the other custom
+# administration plugins on this Discourse installation. The sidebar lands on
+# the Social Profile dashboard first; Settings is an explicit destination from
+# that dashboard.
+add_admin_route "discourse_social_profile.admin.title", "socialProfile"
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.3"
+  VERSION = "0.1.4"
   BUNDLED_MASKS = %w[onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask].freeze
   PUBLIC_ASSET_BASE = "/plugins/#{PLUGIN_NAME}/images/social-profile".freeze
 end
@@ -122,6 +122,11 @@ after_initialize do
   end
 
   Discourse::Application.routes.append do
+    # Frontend admin landing route. Keep a Rails fallback so direct reloads of
+    # /admin/plugins/social-profile resolve to the admin Ember application, as
+    # they do in the HIBP, Link Safety, Heartrate and Disify admin dashboards.
+    get "/admin/plugins/social-profile" => "admin/plugins#index", constraints: AdminConstraint.new
+
     get "/social-profile/preferences.json" => "discourse_social_profile/preferences#index"
     put "/social-profile/preferences.json" => "discourse_social_profile/preferences#update"
     get "/social-profile/click/:token" => "discourse_social_profile/clicks#show", as: :discourse_social_profile_click

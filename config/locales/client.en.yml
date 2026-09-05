@@ -11,6 +11,8 @@ en:
       admin:
         title: "Social Profiles"
         dashboard:
+          description: "Manage native social profile links, platform definitions, secure validation and privacy-friendly statistics."
+          open_settings: "Open settings"
           current_status: "Current status"
           current_status_description: "Live operational state from the Social Profile backend."
           status: "Status"
