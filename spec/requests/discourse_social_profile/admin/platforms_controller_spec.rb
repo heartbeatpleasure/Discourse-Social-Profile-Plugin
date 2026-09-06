@@ -68,14 +68,23 @@ RSpec.describe DiscourseSocialProfile::Admin::PlatformsController do
     sign_in(admin)
     post "/admin/plugins/discourse-social-profile/platforms.json", params: { platform: "bad" }
     expect(response.status).to eq(400)
-    post "/admin/plugins/discourse-social-profile/platforms/#{platform.id}/test.json", params: { value: "alice", platform: "bad" }
+    post "/admin/plugins/discourse-social-profile/platforms/#{platform.id}/test.json", params: { social_profile_test_value: "alice", platform: "bad" }
     expect(response.status).to eq(400)
+  end
+
+  it "does not accept the generic legacy value key on the platform test endpoint" do
+    sign_in(admin)
+    post "/admin/plugins/discourse-social-profile/platforms/#{platform.id}/test.json",
+         params: { value: "alice" }
+    expect(response.status).to eq(200)
+    expect(response.parsed_body["accepted"]).to eq(false)
+    expect(response.parsed_body["error_code"]).to eq("blank")
   end
 
   it "tests an unsaved candidate without changing the stored platform" do
     sign_in(admin)
     post "/admin/plugins/discourse-social-profile/platforms/#{platform.id}/test.json", params: {
-      value: "https://profiles.example/profile/alice",
+      social_profile_test_value: "https://profiles.example/profile/alice",
       platform: { allowed_hosts: "profiles.example", path_regex: "^/profile/" },
     }
     expect(response.status).to eq(200)
@@ -91,6 +100,37 @@ RSpec.describe DiscourseSocialProfile::Admin::PlatformsController do
     }
     expect(response.status).to eq(422)
     expect(platform.reload.input_type).to eq("handle")
+  end
+
+  it "allows validation repairs while disabled and re-audits all stored links before re-enabling" do
+    link = DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "alice")
+    sign_in(admin)
+
+    put "/admin/plugins/discourse-social-profile/platforms/#{platform.id}.json", params: {
+      platform: {
+        enabled: false,
+        input_type: "url_locked",
+        base_url: "",
+        allowed_hosts: "other.example",
+      },
+    }
+    expect(response.status).to eq(200)
+    expect(platform.reload.enabled).to eq(false)
+    expect(platform.input_type).to eq("url_locked")
+    expect(link.reload.value).to eq("alice")
+
+    put "/admin/plugins/discourse-social-profile/platforms/#{platform.id}.json", params: {
+      platform: { enabled: true },
+    }
+    expect(response.status).to eq(422)
+    expect(platform.reload.enabled).to eq(false)
+
+    link.destroy!
+    put "/admin/plugins/discourse-social-profile/platforms/#{platform.id}.json", params: {
+      platform: { enabled: true },
+    }
+    expect(response.status).to eq(200)
+    expect(platform.reload.enabled).to eq(true)
   end
 
   it "only accepts newly assigned public uploads owned by the current admin" do

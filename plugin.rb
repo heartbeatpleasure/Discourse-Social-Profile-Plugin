@@ -2,7 +2,7 @@
 
 # name: Discourse-Social-Profile-Plugin
 # about: Native social profile links for Discourse with plugin-owned data, secure validation, admin management and statistics.
-# version: 0.1.15
+# version: 0.1.16
 # authors: Chris
 # url: https://github.com/heartbeatpleasure/Discourse-Social-Profile-Plugin
 # required_version: 2026.7.2
@@ -20,24 +20,24 @@ register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.15"
+  VERSION = "0.1.16"
   BUNDLED_MASKS = %w[
     onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask
     kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale
     iwantclips redgifs xvideos
   ].freeze
   PUBLIC_ASSET_BASE = "/plugins/#{PLUGIN_NAME}/images/social-profile".freeze
+  BASE_SVG_ICONS = %w[
+    address-card user globe link envelope fab-twitter fab-x-twitter fab-facebook fab-linkedin-in
+    fab-instagram fab-threads fab-youtube fab-discord fab-steam fab-twitch
+    fab-bandcamp fab-spotify fab-soundcloud fab-tiktok fab-telegram fab-mastodon
+    fab-bluesky fab-github fab-strava fab-tumblr fab-amazon fab-reddit-alien
+    fab-snapchat fab-pinterest-p fab-patreon fab-medium fab-deviantart fab-vimeo-v
+    fab-flickr image arrow-up arrow-down pencil trash-can plus check flask
+  ].freeze
 end
 
-%w[
-  address-card user globe link envelope fab-twitter fab-x-twitter fab-facebook fab-linkedin-in
-  fab-instagram fab-threads fab-youtube fab-discord fab-steam fab-twitch
-  fab-bandcamp fab-spotify fab-soundcloud fab-tiktok fab-telegram fab-mastodon
-  fab-bluesky fab-github fab-strava fab-tumblr fab-amazon fab-reddit-alien
-  fab-snapchat fab-pinterest-p fab-patreon fab-medium fab-deviantart fab-vimeo-v
-  fab-flickr image arrow-up
-  arrow-down pencil trash-can plus check flask
-].each { |icon| register_svg_icon icon }
+DiscourseSocialProfile::BASE_SVG_ICONS.each { |icon| register_svg_icon icon }
 
 # Discourse 2026.7 stable does not yet provide the newer dynamic
 # `register_svg_icon_source` API. Baseline icons are registered above; custom
@@ -45,12 +45,24 @@ end
 # when a platform is saved. Stable Discourse includes SiteSettings containing
 # `_icon` in the SVG sprite and expires that sprite when such settings change.
 after_initialize do
+  # Social-profile values can contain email addresses, usernames and adult-profile
+  # destinations. Click tokens are opaque analytics capabilities. Use plugin-specific
+  # parameter names so this data stays out of normal Rails request parameter logs
+  # without globally filtering generic Discourse keys such as `links` or `token`.
+  Rails.application.config.filter_parameters += %i[
+    social_profile_links
+    social_profile_click_token
+    social_profile_test_value
+  ]
+
   require_relative "lib/discourse_social_profile/default_platforms"
   require_relative "lib/discourse_social_profile/url_safety"
   require_relative "lib/discourse_social_profile/link_builder"
   require_relative "lib/discourse_social_profile/platform_validator"
   require_relative "lib/discourse_social_profile/profile_presenter"
   require_relative "lib/discourse_social_profile/statistics"
+  require_relative "lib/discourse_social_profile/user_data_cleanup"
+  require_relative "lib/discourse_social_profile/user_data_merger"
 
   require_dependency File.expand_path("app/models/discourse_social_profile/platform.rb", __dir__)
   require_dependency File.expand_path("app/models/discourse_social_profile/link.rb", __dir__)
@@ -61,6 +73,7 @@ after_initialize do
   require_dependency File.expand_path("app/controllers/discourse_social_profile/admin/platforms_controller.rb", __dir__)
   require_dependency File.expand_path("app/controllers/discourse_social_profile/admin/statistics_controller.rb", __dir__)
   require_dependency File.expand_path("app/jobs/scheduled/discourse_social_profile/cleanup_click_stats.rb", __dir__)
+  require_dependency File.expand_path("app/jobs/regular/discourse_social_profile/cleanup_user_data.rb", __dir__)
 
   # UserSerializer inherits from UserCardSerializer. Register the card attribute first,
   # then the full-profile attribute so descendant-aware serializer registration leaves
@@ -118,14 +131,36 @@ after_initialize do
 
   # Cleanup must also run when the UI SiteSetting is disabled; plugin `on(...)`
   # callbacks are intentionally suppressed in that state, so register directly.
-  DiscourseEvent.on(:user_destroyed) do |user|
-    ::DiscourseSocialProfile::Link.where(user_id: user.id).delete_all
-    ::DiscourseSocialProfile::Statistics.clear!
+  # Never let plugin cleanup failures break Discourse's core destroy/anonymize flow:
+  # attempt synchronously for privacy, then enqueue a retry if the database is
+  # temporarily unavailable.
+  cleanup_user_data = lambda do |user_id|
+    begin
+      ::DiscourseSocialProfile::UserDataCleanup.call(user_id)
+    rescue StandardError => e
+      Rails.logger.error(
+        "[discourse-social-profile] user data cleanup failed; scheduling retry: #{e.class}",
+      )
+      begin
+        Jobs.enqueue(:discourse_social_profile_cleanup_user_data, user_id: user_id)
+      rescue StandardError => enqueue_error
+        Rails.logger.error(
+          "[discourse-social-profile] user data cleanup retry enqueue failed: #{enqueue_error.class}",
+        )
+      end
+    end
   end
 
-  DiscourseEvent.on(:user_anonymized) do |user:, **_opts|
-    ::DiscourseSocialProfile::Link.where(user_id: user.id).delete_all
-    ::DiscourseSocialProfile::Statistics.clear!
+  DiscourseEvent.on(:user_destroyed) { |user| cleanup_user_data.call(user.id) }
+  DiscourseEvent.on(:user_anonymized) { |user:, **_opts| cleanup_user_data.call(user.id) }
+
+  # Core UserMerger fires this immediately before deleting the source account.
+  # Handle it even when the feature SiteSetting is disabled so source-only plugin
+  # data is not lost to the users foreign-key cascade. Target values win conflicts.
+  # Unlike post-destroy cleanup, merge errors deliberately propagate: aborting the
+  # merge before source deletion is safer than silently discarding private data.
+  DiscourseEvent.on(:merging_users) do |source_user, target_user|
+    ::DiscourseSocialProfile::UserDataMerger.call(source_user.id, target_user.id)
   end
 
   Discourse::Application.routes.append do

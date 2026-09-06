@@ -78,10 +78,6 @@ function safeHref(value) {
     return "";
   }
 
-  if (candidate.startsWith("/") && !candidate.startsWith("//")) {
-    return candidate;
-  }
-
   if (candidate.toLowerCase().startsWith("mailto:")) {
     return candidate;
   }
@@ -238,7 +234,7 @@ export default class SocialProfileIcons extends Component {
     // directly at the external profile; this same-origin POST is best-effort only.
     ajax(getURL("/social-profile/click.json"), {
       type: "POST",
-      data: { token: clickToken },
+      data: { social_profile_click_token: clickToken },
     }).catch(() => {});
   }
 

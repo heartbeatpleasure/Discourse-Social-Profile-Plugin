@@ -2,17 +2,30 @@
 
 module ::DiscourseSocialProfile
   module ProfilePresenter
+    PRESENTATION_BUDGET = 0.5.seconds
+
     module_function
 
     def for_user(user, tracking: false)
       return [] unless user
 
-      Link
-        .where(user_id: user.id)
-        .includes(platform: %i[icon_image_upload icon_mask_upload])
-        .joins(:platform)
-        .merge(Platform.enabled.ordered)
-        .filter_map { |link| present(link, tracking: tracking) }
+      links =
+        Link
+          .where(user_id: user.id)
+          .includes(platform: %i[icon_image_upload icon_mask_upload])
+          .joins(:platform)
+          .merge(Platform.enabled.ordered)
+          .to_a
+
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + PRESENTATION_BUDGET.to_f
+      presented = []
+      links.each do |link|
+        break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+        item = present(link, tracking: tracking)
+        presented << item if item
+      end
+      presented
     rescue StandardError => e
       log_presenter_error(e, user_id: user&.id)
       []

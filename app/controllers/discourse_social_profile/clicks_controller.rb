@@ -27,6 +27,9 @@ module ::DiscourseSocialProfile
       link = find_link(token)
       return head :no_content unless link&.platform&.enabled?
       return head :no_content unless guardian.can_see_profile?(link.user)
+      # Bound expensive destination re-validation across distributed callers as
+      # well as per actor. The token is already validated and resolved at this point.
+      return head :no_content unless link_rate_limit_allowed?(link)
       return head :no_content unless valid_destination(link)
       return head :no_content unless actor_link_rate_limit_allowed?(link)
 
@@ -42,7 +45,7 @@ module ::DiscourseSocialProfile
     end
 
     def validated_token!
-      token = params[:token].to_s
+      token = params[:social_profile_click_token].to_s
       raise Discourse::NotFound unless token.match?(Link::CLICK_TOKEN_PATTERN)
       token
     end
@@ -57,8 +60,6 @@ module ::DiscourseSocialProfile
     end
 
     def record_click(link)
-      return unless link_rate_limit_allowed?(link)
-
       ClickStat.increment_for!(link.platform_id)
     rescue StandardError => e
       Rails.logger.warn("[discourse-social-profile] click aggregation failed: #{e.class}")

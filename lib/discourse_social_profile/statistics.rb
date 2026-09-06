@@ -143,7 +143,10 @@ module ::DiscourseSocialProfile
     def click_statistics
       return [] unless SiteSetting.discourse_social_profile_track_clicks
 
-      clicks = ClickStat.where("stat_date >= ?", 30.days.ago.to_date).group(:platform_id).sum(:click_count)
+      # Calendar-day statistic: today plus the previous 29 dates is exactly 30
+      # days. Using 30.days.ago inclusively would silently report a 31-day window.
+      start_date = 29.days.ago.to_date
+      clicks = ClickStat.where("stat_date >= ?", start_date).group(:platform_id).sum(:click_count)
       labels = Platform.where(id: clicks.keys).pluck(:id, :label).to_h
       total = clicks.values.sum.to_i
       clicks

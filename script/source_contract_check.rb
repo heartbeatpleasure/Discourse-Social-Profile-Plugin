@@ -159,7 +159,8 @@ end
 
 check(checks, "Critical profile icon layout and masks do not depend on stylesheet load order") do
   renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
-  assert(renderer.include?('candidate.startsWith("/")'), "same-site tracking hrefs are rejected by the renderer")
+  safe_href = renderer[/function safeHref\(value\).*?^}/m]
+  assert(safe_href && !safe_href.include?('candidate.startsWith("/")'), "internal profile hrefs must not be accepted after redirect-route removal")
   assert(renderer.include?("flex-direction:row") && renderer.include?("display:inline-flex"), "inline row layout fallback missing")
   assert(renderer.include?("-webkit-mask:url('") && renderer.include?("mask:url('"), "inline bundled-mask fallback missing")
   assert(renderer.include?("data-social-platform") && renderer.include?("data-social-profile-count"), "render diagnostics missing")
@@ -223,6 +224,12 @@ check(checks, "Admin candidate validation preserves record identity and locks va
   assert(c.include?("Platform.lock.find(@platform.id)"), "platform row lock missing")
   assert(c.include?("EXISTING_LINK_AUDIT_BUDGET"), "bounded existing-link audit missing")
   assert(!c.include?("@platform.dup"), "dup uniqueness bug present")
+end
+
+check(checks, "Disabled validation repairs fail closed before re-enable") do
+  c = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
+  assert(c.include?("existing_link_audit_required?"), "re-enable audit helper missing")
+  assert(c.include?("candidate.enabled? && (!existing.enabled? || validation_contract_changed?(existing, candidate))"), "disabled/re-enable audit semantics drift")
 end
 
 check(checks, "Discourse 2026.7 stable admin compatibility") do
@@ -357,7 +364,7 @@ end
 check(checks, "Malformed request payloads fail closed") do
   prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
   admin = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
-  assert(prefs.include?("links must be an array") && prefs.include?("each links entry must be an object"), "preferences shape checks missing")
+  assert(prefs.include?("social profile links must be an array") && prefs.include?("each links entry must be an object"), "preferences shape checks missing")
   assert(prefs.include?("9_223_372_036_854_775_807") && admin.include?("9_223_372_036_854_775_807"), "bounded database identifier parsing missing")
   assert(admin.include?("platform must be an object"), "admin platform shape check missing")
 end
@@ -382,8 +389,113 @@ check(checks, "Opaque click analytics identifiers with direct navigation") do
   assert(renderer.include?("trackClick") && renderer.include?("type: \"POST\""), "background click POST missing")
   assert(plugin.include?('post "/social-profile/click.json"'), "generic background click route missing")
   assert(!plugin.include?('post "/social-profile/click/:token"'), "click token must not appear in request-path routes")
-  assert(renderer.include?("data: { token: clickToken }"), "click token should be carried in POST body, not the current request path")
+  assert(renderer.include?("data: { social_profile_click_token: clickToken }"), "click token should use the plugin-specific log-filtered POST parameter")
   assert(!presenter.include?('/social-profile/click/#{link.id}'), "sequential link id exposed")
+end
+
+check(checks, "Sensitive social-profile request parameters are log-filtered") do
+  plugin = read("plugin.rb")
+  prefs = read("assets/javascripts/discourse/controllers/preferences/social-profiles.js")
+  icons = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  editor = read("admin/assets/javascripts/discourse/components/social-profile-platform-editor.gjs")
+  %w[social_profile_links social_profile_click_token social_profile_test_value].each do |key|
+    assert(plugin.include?(key), "missing Rails parameter filter #{key}")
+  end
+  assert(prefs.include?("social_profile_links:"), "preferences client still uses generic unfiltered parameter")
+  assert(icons.include?("social_profile_click_token: clickToken"), "click client still uses generic unfiltered token parameter")
+  assert(editor.include?("social_profile_test_value:"), "admin test client still uses generic unfiltered value parameter")
+
+  prefs_controller = read("app/controllers/discourse_social_profile/preferences_controller.rb")
+  clicks_controller = read("app/controllers/discourse_social_profile/clicks_controller.rb")
+  admin_controller = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
+  assert(!prefs_controller.include?("params[:links]"), "generic legacy links alias can leak profile values to request logs")
+  assert(!clicks_controller.include?("params[:token]"), "generic legacy token alias can leak click capabilities to request logs")
+  assert(!admin_controller.include?("params[:value]"), "generic legacy test value alias can leak profile values to request logs")
+end
+
+check(checks, "Owners can erase stored values after a platform is disabled") do
+  prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
+  client = read("assets/javascripts/discourse/templates/preferences/social-profiles.gjs")
+  assert(prefs.include?("Platform.where(id: values.keys)"), "disabled linked platforms are not returned to their owner")
+  assert(prefs.include?('errors[platform_id] = "platform_disabled"'), "disabled platform nonblank writes are not rejected")
+  assert(prefs.include?("normalized[platform_id] = nil"), "disabled platform deletion path missing")
+  assert(prefs.include?("existing_links[platform_id]&.value.to_s == value"), "unchanged disabled values must be a no-op rather than blocking unrelated saves")
+  assert(client.include?("preferences.unavailable") && client.include?("clearValue"), "disabled-value removal UI missing")
+end
+
+check(checks, "External mask URLs avoid CSS Referer leakage") do
+  model = read("app/models/discourse_social_profile/platform.rb")
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  editor = read("admin/assets/javascripts/discourse/components/social-profile-platform-editor.gjs")
+  assert(model.include?("return icon_mask_url if PlatformValidator.safe_external_icon_url?(icon_mask_url, mask: true)"), "external mask image fallback missing")
+  mask_method = model[/def mask_url.*?^    end/m]
+  assert(mask_method && !mask_method.include?("icon_mask_url"), "external mask still emitted as a CSS mask URL")
+  assert(renderer.include?('referrerpolicy="no-referrer"'), "external image renderer lacks no-referrer policy")
+  assert(editor.include?("icon_image_upload_id") && editor.include?("icon_mask_upload_id"), "admin uploader previews are not gated to native uploads")
+  assert(editor.include?("not fetched in this editor preview for privacy"), "external admin preview privacy contract missing")
+end
+
+check(checks, "Aggregate validation and rendering work is time-bounded") do
+  prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
+  presenter = read("lib/discourse_social_profile/profile_presenter.rb")
+  assert(prefs.include?("VALIDATION_BUDGET = 1.second") && prefs.include?("validation_deadline"), "preferences aggregate validation budget missing")
+  assert(prefs.include?('errors[:base] = "validation_timed_out"'), "preferences validation budget does not fail closed")
+  assert(presenter.include?("PRESENTATION_BUDGET = 0.5.seconds") && presenter.include?("deadline"), "profile rendering aggregate budget missing")
+end
+
+check(checks, "Distributed click abuse is bounded before expensive destination validation") do
+  clicks = read("app/controllers/discourse_social_profile/clicks_controller.rb")
+  global_limit = clicks.index("link_rate_limit_allowed?(link)")
+  validation = clicks.index("valid_destination(link)")
+  assert(global_limit && validation && global_limit < validation, "global per-link limiter must run before destination LinkBuilder validation")
+end
+
+check(checks, "Lifecycle privacy cleanup cannot break core user operations and has a retry path") do
+  plugin = read("plugin.rb")
+  cleanup = read("lib/discourse_social_profile/user_data_cleanup.rb")
+  job = read("app/jobs/regular/discourse_social_profile/cleanup_user_data.rb")
+  assert(plugin.include?("cleanup_user_data = lambda") && plugin.include?("scheduling retry"), "non-raising lifecycle cleanup wrapper missing")
+  assert(plugin.include?("Jobs.enqueue(:discourse_social_profile_cleanup_user_data"), "lifecycle cleanup retry enqueue missing")
+  assert(cleanup.include?("DistributedMutex.synchronize") && cleanup.include?("delete_links(id)"), "serialized user-data cleanup missing")
+  assert(cleanup.include?("rescue Redis::BaseError") && cleanup.include?("deleting without lock"), "privacy cleanup must not depend on Redis availability")
+  assert(job.include?("DiscourseSocialProfileCleanupUserData") && job.include?("sidekiq_options retry: 5") && job.include?("UserDataCleanup.call"), "retry cleanup job missing")
+end
+
+check(checks, "Fresh URL parser hardening covers dot segments, backslashes and special IPv6") do
+  builder = read("lib/discourse_social_profile/link_builder.rb")
+  safety = read("lib/discourse_social_profile/url_safety.rb")
+  assert(builder.include?("%w[. ..].include?(decoded)"), "identifier dot-segment guard missing")
+  assert(builder.include?('.tr("\\\\", "/")'), "nested redirect backslash normalization missing")
+  assert(safety.include?('IPAddr.new("100:0:0:1::/64")'), "IANA dummy IPv6 prefix is not blocked")
+end
+
+check(checks, "Dynamic SVG preload state is bounded to current platform configuration") do
+  model = read("app/models/discourse_social_profile/platform.rb")
+  assert(model.include?("sync_svg_icon_preloads"), "current-icon preload synchronization missing")
+  assert(model.include?(".limit(MAX_PLATFORMS)"), "SVG preload list is not bounded")
+  assert(model.include?("BASE_SVG_ICONS.include?"), "baseline icons are redundantly copied into dynamic preload state")
+  assert(!model.include?("icons + [icon_name]"), "append-only SVG preload history remains")
+end
+
+check(checks, "Click reporting and retention use exact calendar-day windows") do
+  stats = read("lib/discourse_social_profile/statistics.rb")
+  job = read("app/jobs/scheduled/discourse_social_profile/cleanup_click_stats.rb")
+  assert(stats.include?("29.days.ago.to_date"), "30-day click reporting is still an inclusive 31-day range")
+  assert(job.include?("(days - 1).days.ago.to_date"), "retention still keeps an extra calendar date")
+end
+
+check(checks, "Discourse user merge preserves plugin-owned profile data") do
+  plugin = read("plugin.rb")
+  merger = read("lib/discourse_social_profile/user_data_merger.rb")
+  spec = read("spec/lib/discourse_social_profile/user_data_merger_spec.rb")
+  assert(plugin.include?("DiscourseEvent.on(:merging_users)"), "Discourse user-merge lifecycle hook missing")
+  assert(plugin.include?("UserDataMerger.call(source_user.id, target_user.id)"), "user-merge hook is not wired to merger service")
+  assert(merger.include?("DistributedMutex.synchronize") && merger.include?("Link.transaction"), "user merge is not serialized/transactional")
+  assert(merger.include?("target_platform_ids.include?") && merger.include?("delete_all"), "target-wins conflict handling missing")
+  assert(merger.include?("update_all(user_id: target_id"), "source-only rows are not transferred")
+  assert(merger.include?("rescue ActiveRecord::RecordNotUnique") && merger.include?("MAX_CONFLICT_RETRIES"), "database conflict retry missing")
+  assert(merger.include?("next if source_links.empty?"), "transaction block must not use a non-local return")
+  assert(spec.include?("preserves their click token") && spec.include?("keeps the target value"), "user merger regression coverage missing")
 end
 
 check(checks, "Click analytics is aggregate-only") do

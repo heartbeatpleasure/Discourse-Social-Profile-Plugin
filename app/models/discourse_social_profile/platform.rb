@@ -71,7 +71,7 @@ module ::DiscourseSocialProfile
 
     before_validation :normalize_fields
     after_save :sync_upload_references
-    after_commit :ensure_svg_icon_preloaded
+    after_commit :sync_svg_icon_preloads
     after_destroy :clear_upload_references
 
     scope :ordered, -> { order(:position, :id) }
@@ -85,19 +85,23 @@ module ::DiscourseSocialProfile
       if public_icon_upload?(icon_image_upload, %w[png jpg jpeg svg webp])
         return GlobalPath.full_cdn_url(icon_image_upload.url)
       end
-      return nil unless SiteSetting.discourse_social_profile_allow_external_icon_urls
-      return nil unless PlatformValidator.safe_external_icon_url?(icon_image_url, mask: false)
 
-      icon_image_url
+      if SiteSetting.discourse_social_profile_allow_external_icon_urls
+        return icon_image_url if PlatformValidator.safe_external_icon_url?(icon_image_url, mask: false)
+
+        # A CSS mask request cannot carry an element-level Referrer-Policy. Render
+        # administrator-configured external mask URLs as ordinary <img> resources
+        # instead, so the frontend can enforce referrerpolicy="no-referrer". Native
+        # uploaded and bundled masks remain true CSS masks and retain recoloring.
+        return icon_mask_url if PlatformValidator.safe_external_icon_url?(icon_mask_url, mask: true)
+      end
+
+      nil
     end
 
     def mask_url
       if public_icon_upload?(icon_mask_upload, %w[svg])
         return GlobalPath.full_cdn_url(icon_mask_upload.url)
-      end
-      if SiteSetting.discourse_social_profile_allow_external_icon_urls &&
-           PlatformValidator.safe_external_icon_url?(icon_mask_url, mask: true)
-        return icon_mask_url
       end
       return nil unless DiscourseSocialProfile::BUNDLED_MASKS.include?(builtin_icon)
 
@@ -268,17 +272,25 @@ module ::DiscourseSocialProfile
       UploadReference.ensure_exist!(upload_ids: ids, target: self)
     end
 
-    def ensure_svg_icon_preloaded
-      return unless previous_changes.key?("icon_name")
-      return if icon_name.blank?
-
+    def sync_svg_icon_preloads
+      # Keep the generated SiteSetting bounded to icon names actually referenced by
+      # current platform records. The previous append-only behavior could retain an
+      # unlimited history of renamed/deleted custom icons and unnecessarily grow the
+      # SVG sprite over time. MAX_PLATFORMS + icon_name validation bounds this list.
       icons =
-        SiteSetting.discourse_social_profile_extra_svg_icons.to_s.split("|").map(&:strip).reject(&:blank?)
-      return if icons.include?(icon_name)
+        self.class
+          .where.not(icon_name: [nil, ""])
+          .distinct
+          .order(:icon_name)
+          .limit(MAX_PLATFORMS)
+          .pluck(:icon_name)
+          .reject { |name| DiscourseSocialProfile::BASE_SVG_ICONS.include?(name) }
+      serialized = icons.join("|")
+      return if SiteSetting.discourse_social_profile_extra_svg_icons.to_s == serialized
 
-      SiteSetting.discourse_social_profile_extra_svg_icons = (icons + [icon_name]).uniq.join("|")
+      SiteSetting.discourse_social_profile_extra_svg_icons = serialized
     rescue => e
-      Rails.logger.warn("[discourse-social-profile] SVG icon preload update failed: #{e.class}")
+      Rails.logger.warn("[discourse-social-profile] SVG icon preload sync failed: #{e.class}")
     end
 
     def clear_upload_references

@@ -148,7 +148,8 @@ export default <template>
       -webkit-line-clamp: 3;
     }
 
-    .sp-prefs__configured {
+    .sp-prefs__configured,
+    .sp-prefs__unavailable {
       position: absolute;
       top: 0;
       right: 0;
@@ -156,11 +157,19 @@ export default <template>
       align-items: center;
       padding: .28rem .58rem;
       border-radius: 999px;
-      background: var(--success-low);
-      color: var(--success);
       font-size: var(--font-down-1);
       font-weight: 700;
       white-space: nowrap;
+    }
+
+    .sp-prefs__configured {
+      background: var(--success-low);
+      color: var(--success);
+    }
+
+    .sp-prefs__unavailable {
+      background: var(--primary-very-low);
+      color: var(--primary-medium);
     }
 
     .sp-prefs__field {
@@ -180,6 +189,12 @@ export default <template>
       max-height: 3rem !important;
       margin: 0 !important;
       padding: .65rem .75rem;
+    }
+
+    .sp-prefs__disabled-actions {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
     }
 
     .sp-prefs__error {
@@ -252,7 +267,8 @@ export default <template>
         height: 2.7rem;
       }
 
-      .sp-prefs__configured {
+      .sp-prefs__configured,
+      .sp-prefs__unavailable {
         position: static;
         grid-column: 2;
         justify-self: start;
@@ -292,9 +308,15 @@ export default <template>
               <div class="sp-prefs__help">{{platform.display_description}}</div>
             </div>
 
-            {{#if (get @controller.values platform.id)}}
-              <span class="sp-prefs__configured">
-                {{i18n "discourse_social_profile.preferences.configured"}}
+            {{#if platform.enabled}}
+              {{#if (get @controller.values platform.id)}}
+                <span class="sp-prefs__configured">
+                  {{i18n "discourse_social_profile.preferences.configured"}}
+                </span>
+              {{/if}}
+            {{else}}
+              <span class="sp-prefs__unavailable">
+                {{i18n "discourse_social_profile.preferences.unavailable"}}
               </span>
             {{/if}}
           </div>
@@ -318,8 +340,20 @@ export default <template>
               value={{get @controller.values platform.id}}
               placeholder={{platform.display_placeholder}}
               autocomplete="off"
+              readonly={{if platform.enabled null true}}
               {{on "input" (fn @controller.setValue platform.id)}}
             />
+
+            {{#unless platform.enabled}}
+              <div class="sp-prefs__disabled-actions">
+                <DButton
+                  @action={{fn @controller.clearValue platform.id}}
+                  @label="discourse_social_profile.preferences.remove"
+                  @icon="trash-can"
+                  class="btn-default"
+                />
+              </div>
+            {{/unless}}
 
             {{#if (get @controller.errors platform.id)}}
               <div class="sp-prefs__error">

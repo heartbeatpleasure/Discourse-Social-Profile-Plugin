@@ -19,8 +19,16 @@ export default class SocialProfilePlatformEditor extends Component {
   @tracked formData = { ...(this.args.model?.platform || {}) };
   @tracked iconImageUploadId = this.args.model?.platform?.icon_image_upload_id || null;
   @tracked iconMaskUploadId = this.args.model?.platform?.icon_mask_upload_id || null;
-  @tracked iconImagePreview = this.args.model?.platform?.resolved_icon_image_url || null;
-  @tracked iconMaskPreview = this.args.model?.platform?.resolved_icon_mask_url || null;
+  // UppyImageUploader renders previews with CSS background-image, which cannot
+  // attach an element-level Referrer-Policy. Only feed it native Discourse uploads;
+  // administrator-configured external URLs are shown safely in the platform list
+  // after save, where the shared icon component uses referrerpolicy="no-referrer".
+  @tracked iconImagePreview = this.args.model?.platform?.icon_image_upload_id
+    ? this.args.model?.platform?.resolved_icon_image_url || null
+    : null;
+  @tracked iconMaskPreview = this.args.model?.platform?.icon_mask_upload_id
+    ? this.args.model?.platform?.resolved_icon_mask_url || null
+    : null;
   @tracked testValue = "";
   @tracked testResult = null;
   @tracked testing = false;
@@ -115,7 +123,7 @@ export default class SocialProfilePlatformEditor extends Component {
         `/admin/plugins/discourse-social-profile/platforms/${id}/test.json`,
         {
           type: "POST",
-          data: { value: this.testValue, platform: this.cleanPayload(data) },
+          data: { social_profile_test_value: this.testValue, platform: this.cleanPayload(data) },
         }
       );
     } catch (error) {
@@ -265,7 +273,7 @@ export default class SocialProfilePlatformEditor extends Component {
                   @id="social-profile-image-uploader"
                 />
               </div>
-              <form.Field @name="icon_image_url" @title="External full-color icon URL" @description="Optional HTTPS compatibility URL. Native upload is preferred." @type="input-url" as |field|><field.Control /></form.Field>
+              <form.Field @name="icon_image_url" @title="External full-color icon URL" @description="Optional HTTPS compatibility URL. Native upload is preferred. External URLs are not fetched in this editor preview for privacy." @type="input-url" as |field|><field.Control /></form.Field>
               <div class="control-group">
                 <label class="control-label">Monochrome mask upload (SVG)</label>
                 <UppyImageUploader
@@ -276,7 +284,7 @@ export default class SocialProfilePlatformEditor extends Component {
                   @id="social-profile-mask-uploader"
                 />
               </div>
-              <form.Field @name="icon_mask_url" @title="External monochrome mask URL" @description="Optional HTTPS compatibility URL." @type="input-url" as |field|><field.Control /></form.Field>
+              <form.Field @name="icon_mask_url" @title="External monochrome mask URL" @description="Optional HTTPS compatibility URL. For privacy, external masks render as no-referrer images and are not fetched in this editor preview; native uploads are preferred." @type="input-url" as |field|><field.Control /></form.Field>
             </form.Section>
           </div>
 

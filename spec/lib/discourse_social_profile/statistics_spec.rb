@@ -20,6 +20,16 @@ RSpec.describe DiscourseSocialProfile::Statistics do
     expect(result[:invalid_values_detected]).to eq(0)
   end
 
+  it "uses an exact 30-calendar-day click window" do
+    SiteSetting.discourse_social_profile_track_clicks = true
+    p = DiscourseSocialProfile::Platform.create!(key: "click-window", label: "Window", input_type: "url_any_https")
+    DiscourseSocialProfile::ClickStat.create!(platform: p, stat_date: 29.days.ago.to_date, click_count: 2)
+    DiscourseSocialProfile::ClickStat.create!(platform: p, stat_date: 30.days.ago.to_date, click_count: 99)
+
+    result = described_class.calculate
+    expect(result[:clicks_30d_total]).to eq(2)
+  end
+
   it "reports aggregate click share only" do
     SiteSetting.discourse_social_profile_track_clicks = true
     p1 = DiscourseSocialProfile::Platform.create!(key: "click-one", label: "Click One", input_type: "url_any_https")

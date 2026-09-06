@@ -123,6 +123,29 @@ RSpec.describe DiscourseSocialProfile::Platform do
     expect(described_class.new(valid_attrs.merge(key: "large", icon_image_upload: large))).not_to be_valid
   end
 
+  it "renders external mask URLs as no-referrer image resources rather than CSS masks" do
+    SiteSetting.discourse_social_profile_allow_external_icon_urls = true
+    p = described_class.create!(
+      valid_attrs.merge(key: "external-mask", icon_mask_url: "https://cdn.example/mask.svg"),
+    )
+    expect(p.image_url).to eq("https://cdn.example/mask.svg")
+    expect(p.mask_url).to be_nil
+  end
+
+  it "keeps the extra SVG preload setting bounded to icon names still in use" do
+    first = described_class.create!(valid_attrs.merge(key: "icon-first", icon_name: "custom-social-one"))
+    second = described_class.create!(valid_attrs.merge(key: "icon-second", icon_name: "custom-social-two"))
+    expect(SiteSetting.discourse_social_profile_extra_svg_icons.split("|")).to include("custom-social-one", "custom-social-two")
+
+    first.update!(icon_name: "custom-social-three")
+    icons = SiteSetting.discourse_social_profile_extra_svg_icons.split("|")
+    expect(icons).to include("custom-social-three", "custom-social-two")
+    expect(icons).not_to include("custom-social-one")
+
+    second.destroy!
+    expect(SiteSetting.discourse_social_profile_extra_svg_icons.split("|")).not_to include("custom-social-two")
+  end
+
   it "resolves native uploads through GlobalPath" do
     upload = Fabricate(:upload, extension: "png", filesize: png_content.bytesize, secure: false)
     allow(upload).to receive(:content).and_return(png_content)

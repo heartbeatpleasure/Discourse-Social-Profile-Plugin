@@ -31,6 +31,10 @@ export default class PreferencesSocialProfilesController extends Controller {
   descriptionFor(platform) {
     const label = platform?.label || i18n("discourse_social_profile.preferences.profile_link");
 
+    if (platform?.enabled === false) {
+      return i18n("discourse_social_profile.preferences.disabled_help");
+    }
+
     switch (platform?.input_type) {
       case "email":
         return i18n("discourse_social_profile.preferences.card_help_email");
@@ -85,6 +89,16 @@ export default class PreferencesSocialProfilesController extends Controller {
     this.errors = nextErrors;
   }
 
+
+  @action
+  clearValue(platformId) {
+    this.flash = null;
+    this.values = { ...this.values, [platformId]: "" };
+    const nextErrors = { ...this.errors };
+    delete nextErrors[platformId];
+    this.errors = nextErrors;
+  }
+
   @action
   async save() {
     this.saving = true;
@@ -93,7 +107,7 @@ export default class PreferencesSocialProfilesController extends Controller {
         type: "PUT",
         contentType: "application/json",
         data: JSON.stringify({
-          links: this.platforms.map((platform) => ({
+          social_profile_links: this.platforms.map((platform) => ({
             platform_id: platform.id,
             value: this.values[platform.id] || "",
           })),

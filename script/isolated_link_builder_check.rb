@@ -103,6 +103,10 @@ check("encoded control rejected") { fail!(LB.call(platform(type: "url_any_https"
 check("deeply encoded control rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/a%252525250aX"), :invalid_value) }
 check("deeply encoded slash cannot bypass strict path regex") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/[^/]+/?$'), "https://example.com/users/alice%2525252Fadmin"), :invalid_path) }
 check("deeply encoded nested URL rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/?next=https%2525253A%2525252F%2525252Fevil.test"), :invalid_url) }
+check("dot-segment handle rejected") { fail!(LB.call(platform(type: "handle", base: "https://example.com/users/", hosts: "example.com"), ".."), :invalid_handle) }
+check("encoded dot-segment handle rejected") { fail!(LB.call(platform(type: "handle", base: "https://example.com/users/", hosts: "example.com"), "%252e%252e"), :invalid_handle) }
+check("encoded handle separator rejected") { fail!(LB.call(platform(type: "handle", base: "https://example.com/users/", hosts: "example.com"), "alice%252Fadmin"), :invalid_handle) }
+check("backslash nested redirect rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/?next=https:%255c%255cevil.test"), :invalid_url) }
 check("blank rejected") { fail!(LB.call(platform(type: "url_any_https"), "  \t"), :blank) }
 
 puts "LinkBuilder isolated checks: #{$passed} passed, 0 failed"

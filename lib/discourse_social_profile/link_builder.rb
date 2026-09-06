@@ -14,7 +14,7 @@ module ::DiscourseSocialProfile
     REGEX_TIMEOUT = 0.05
     REGEX_CACHE_SIZE = 256
     SCHEME_PREFIX = /\A[a-z][a-z0-9+.-]*:/i
-    HANDLE_FORBIDDEN = /[\/:?#]/
+    HANDLE_FORBIDDEN = /[\/\\:?#]/
     CONTROL = /[\u0000-\u001F\u007F]/
     MAX_REDIRECT_DECODE_PASSES = ::DiscourseSocialProfile::UrlSafety::MAX_DECODE_PASSES
     REDIRECT_QUERY_KEYS = %w[
@@ -85,6 +85,12 @@ module ::DiscourseSocialProfile
       return failure(numeric ? :invalid_numeric_id : :invalid_handle) if normalized.blank?
       return failure(:invalid_handle) if normalized.match?(HANDLE_FORBIDDEN)
       return failure(:invalid_numeric_id) if numeric && !normalized.match?(/\A\d+\z/)
+
+      unless numeric
+        decoded = repeatedly_percent_decode(normalized)
+        return failure(:invalid_handle) unless decoded.valid_encoding?
+        return failure(:invalid_handle) if %w[. ..].include?(decoded) || decoded.match?(HANDLE_FORBIDDEN)
+      end
 
       normalized
     end
@@ -173,7 +179,11 @@ module ::DiscourseSocialProfile
     end
 
     def nested_external_url?(value, anywhere: false)
-      decoded = repeatedly_percent_decode(value.to_s)
+      # Browsers and some destination frameworks treat backslashes as URL
+      # separators for special schemes. Normalize them before nested-URL checks so
+      # encoded forms such as https:%5c%5cevil.example cannot bypass redirector
+      # detection and be interpreted differently downstream.
+      decoded = repeatedly_percent_decode(value.to_s).tr("\\", "/")
       pattern = anywhere ? %r{(?:https?:)?//}i : %r{\A[[:space:]]*(?:https?://|//)}i
       decoded.match?(pattern)
     end
@@ -191,7 +201,7 @@ module ::DiscourseSocialProfile
     end
 
     def redirect_endpoint_path?(path)
-      decoded = repeatedly_percent_decode(path.to_s)
+      decoded = repeatedly_percent_decode(path.to_s).tr("\\", "/")
       basename = File.basename(decoded.sub(%r{/+\z}, "")).downcase
       REDIRECT_PATH_BASENAMES.include?(basename)
     end

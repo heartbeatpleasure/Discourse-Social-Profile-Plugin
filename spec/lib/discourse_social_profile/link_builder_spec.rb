@@ -31,6 +31,13 @@ RSpec.describe DiscourseSocialProfile::LinkBuilder do
     expect(result.href).to eq("https://example.com/u/john%2Btag%40example")
   end
 
+  it "rejects identifier dot segments and encoded path separators before URL construction" do
+    p = platform(input_type: "handle", base_url: "https://example.com/users/", allowed_hosts: "example.com")
+    %w[. .. %2e %2e%2e %252e%252e alice\\admin alice%2Fadmin alice%255Cadmin].each do |value|
+      expect(described_class.call(p, value).error_code).to eq("invalid_handle"), value
+    end
+  end
+
   it "preserves a matching full HTTPS URL for handle input" do
     raw = "https://www.example.com/u/john?tab=profile#about"
     result = described_class.call(platform(input_type: "handle", base_url: "https://example.com/u/", allowed_hosts: "example.com,www.example.com"), raw)
@@ -77,6 +84,12 @@ RSpec.describe DiscourseSocialProfile::LinkBuilder do
     expect(described_class.call(p, "https://example.com/l.php?u=https%3A%2F%2Fevil.test").error_code).to eq("invalid_url")
     expect(described_class.call(p, "https://example.com/l.php?u=https%253A%252F%252Fevil.test").error_code).to eq("invalid_url")
     expect(described_class.call(p, "https://example.com/out/https%3A%2F%2Fevil.test").error_code).to eq("invalid_url")
+  end
+
+  it "rejects nested redirect targets encoded with browser-style backslashes" do
+    p = platform(input_type: "url_any_https")
+    expect(described_class.call(p, "https://example.com/?next=https:%5c%5cevil.example").error_code).to eq("invalid_url")
+    expect(described_class.call(p, "https://example.com/?next=https:%255c%255cevil.example").error_code).to eq("invalid_url")
   end
 
   it "allows normal query and fragment semantics" do

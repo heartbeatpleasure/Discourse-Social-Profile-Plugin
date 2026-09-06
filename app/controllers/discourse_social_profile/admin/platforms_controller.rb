@@ -74,7 +74,7 @@ module ::DiscourseSocialProfile
               next
             end
 
-            if validation_contract_changed?(locked, candidate)
+            if existing_link_audit_required?(locked, candidate)
               audit_result = existing_link_validation_result(locked, candidate)
               contract_error = audit_result unless audit_result == :ok
               next if contract_error
@@ -137,7 +137,15 @@ module ::DiscourseSocialProfile
       end
 
       def reorder
-        ids = Array(params[:ids]).map { |value| strict_positive_id(value) }
+        raw_ids = Array(params[:ids])
+        if raw_ids.length > Platform::MAX_PLATFORMS
+          return render_json_error(
+            I18n.t("discourse_social_profile.errors.invalid_reorder"),
+            status: :unprocessable_entity,
+          )
+        end
+
+        ids = raw_ids.map { |value| strict_positive_id(value) }
         reordered = false
 
         DistributedMutex.synchronize(ADMIN_MUTATION_MUTEX) do
@@ -179,7 +187,7 @@ module ::DiscourseSocialProfile
           )
         end
 
-        result = LinkBuilder.call(candidate, params[:value])
+        result = LinkBuilder.call(candidate, params[:social_profile_test_value])
         render_json_dump(
           accepted: result.ok?,
           href: result.href,
@@ -269,6 +277,14 @@ module ::DiscourseSocialProfile
         VALIDATION_CONTRACT_ATTRIBUTES.any? do |attribute|
           existing.public_send(attribute).to_s != candidate.public_send(attribute).to_s
         end
+      end
+
+      def existing_link_audit_required?(existing, candidate)
+        # A disabled platform is not rendered publicly and owners may only keep an
+        # unchanged value or delete it. Allow administrators to repair/change its
+        # validation contract while disabled, but fail closed before it can be
+        # re-enabled with stored values that no longer satisfy the active rules.
+        candidate.enabled? && (!existing.enabled? || validation_contract_changed?(existing, candidate))
       end
 
       def existing_link_validation_result(existing, candidate)

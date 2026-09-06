@@ -7,6 +7,7 @@ module ::DiscourseSocialProfile
     before_action :ensure_plugin_enabled
 
     MAX_PREFERENCES_ENTRIES = Platform::MAX_PLATFORMS
+    VALIDATION_BUDGET = 1.second
 
     def index
       response.headers["Cache-Control"] = "no-store"
@@ -52,17 +53,49 @@ module ::DiscourseSocialProfile
         Link.transaction do
           platforms =
             Platform.where(id: platform_ids).order(:id).lock.to_a.index_by(&:id)
+          existing_links =
+            Link
+              .where(user_id: current_user.id, platform_id: platform_ids)
+              .order(:platform_id)
+              .lock
+              .to_a
+              .index_by(&:platform_id)
+
+          validation_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + VALIDATION_BUDGET.to_f
 
           entries.each do |entry|
             platform_id = strict_positive_id(entry[:platform_id])
             platform = platforms[platform_id]
-            if platform.nil? || !platform.enabled?
+            if platform.nil?
               errors[platform_id] = "invalid_platform"
               next
             end
 
             value = entry[:value].to_s.strip
+
+            # Disabled platforms are hidden from public rendering, but an owner must
+            # still be able to erase an identifier stored before an administrator
+            # disabled that platform. Never permit creating/updating a nonblank value
+            # while disabled; blank is deletion-only and therefore safe.
+            unless platform.enabled?
+              if value.blank?
+                normalized[platform_id] = nil
+              elsif existing_links[platform_id]&.value.to_s == value
+                # Preserve an unchanged value as a no-op so a disabled platform
+                # does not block saving unrelated enabled profiles. Any attempt to
+                # create or alter a nonblank value while disabled still fails.
+              else
+                errors[platform_id] = "platform_disabled"
+              end
+              next
+            end
+
             next normalized[platform_id] = nil if value.blank?
+
+            if Process.clock_gettime(Process::CLOCK_MONOTONIC) > validation_deadline
+              errors[:base] = "validation_timed_out"
+              break
+            end
 
             result = LinkBuilder.call(platform, value)
             if result.ok?
@@ -103,14 +136,12 @@ module ::DiscourseSocialProfile
     end
 
     def raw_links
-      raw = params[:links]
+      raw = params[:social_profile_links]
       return raw if raw.is_a?(Array)
 
-      # jQuery-style form encoding serializes an array of objects as
-      # links[0][platform_id]=... . Rails parses that shape as an
-      # ActionController::Parameters object keyed by numeric indexes. Accept it
-      # as a compatibility fallback for stale/cached clients; the current
-      # frontend sends JSON and therefore arrives as a real Array.
+      # Form-encoded API clients can serialize an array of objects as numeric
+      # keys. Keep this shape under the plugin-specific, log-filtered outer
+      # parameter; generic legacy aliases are deliberately not accepted.
       if raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
         keys = raw.keys.map(&:to_s)
         if keys.all? { |key| key.match?(/\A\d+\z/) }
@@ -118,7 +149,7 @@ module ::DiscourseSocialProfile
         end
       end
 
-      raise ActionController::BadRequest, "links must be an array"
+      raise ActionController::BadRequest, "social profile links must be an array"
     end
 
     def permitted_links(raw)
@@ -146,12 +177,20 @@ module ::DiscourseSocialProfile
 
     def platform_payloads
       values = Link.where(user_id: current_user.id).pluck(:platform_id, :value).to_h
-      Platform.enabled.ordered.includes(:icon_image_upload, :icon_mask_upload).map do |platform|
+      platforms =
+        Platform
+          .where(enabled: true)
+          .or(Platform.where(id: values.keys))
+          .ordered
+          .includes(:icon_image_upload, :icon_mask_upload)
+
+      platforms.map do |platform|
         value = values[platform.id].to_s
         result = value.present? ? LinkBuilder.call(platform, value) : nil
         {
           id: platform.id,
           key: platform.key,
+          enabled: platform.enabled?,
           label: platform.label,
           instructions: platform.user_instructions,
           placeholder: platform.placeholder,
@@ -161,7 +200,7 @@ module ::DiscourseSocialProfile
           icon_mask_url: platform.mask_url,
           value: value,
           valid: result.nil? || result.ok?,
-          preview_href: result&.ok? ? result.href : nil,
+          preview_href: platform.enabled? && result&.ok? ? result.href : nil,
           error_code: result&.ok? == false ? result.error_code : nil,
         }
       end

@@ -27,6 +27,7 @@ RSpec.describe DiscourseSocialProfile::UrlSafety do
       64:ff9b::c0a8:101
       2001::1
       2002:c0a8:0101::1
+      100:0:0:1::1
     ].each do |host|
       expect(described_class.public_host?(host)).to eq(false), host
     end

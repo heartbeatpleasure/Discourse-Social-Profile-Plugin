@@ -39,6 +39,7 @@ module ::DiscourseSocialProfile
       IPAddr.new("64:ff9b::/96"),
       IPAddr.new("64:ff9b:1::/48"),
       IPAddr.new("100::/64"),
+      IPAddr.new("100:0:0:1::/64"),
       IPAddr.new("2001::/32"),
       IPAddr.new("2001:2::/48"),
       IPAddr.new("2001:10::/28"),

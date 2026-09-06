@@ -27,6 +27,32 @@ RSpec.describe "Social profile user lifecycle" do
     expect(DiscourseSocialProfile::Link.where(user_id: user.id)).to be_empty
   end
 
+  it "moves plugin-owned data during Discourse user merge even when the UI setting is disabled" do
+    target_user = Fabricate(:user)
+    source_link = DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "source-name")
+    token = source_link.click_token
+    SiteSetting.discourse_social_profile_enabled = false
+
+    DiscourseEvent.trigger(:merging_users, user, target_user)
+
+    moved = DiscourseSocialProfile::Link.find_by(user_id: target_user.id, platform_id: platform.id)
+    expect(moved).to be_present
+    expect(moved.value).to eq("source-name")
+    expect(moved.click_token).to eq(token)
+    expect(DiscourseSocialProfile::Link.where(user_id: user.id)).to be_empty
+  end
+
+  it "preserves the target social profile when merged users share a platform" do
+    target_user = Fabricate(:user)
+    DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "source-name")
+    target_link = DiscourseSocialProfile::Link.create!(user: target_user, platform: platform, value: "target-name")
+
+    DiscourseEvent.trigger(:merging_users, user, target_user)
+
+    expect(target_link.reload.value).to eq("target-name")
+    expect(DiscourseSocialProfile::Link.where(user_id: user.id)).to be_empty
+  end
+
   it "includes raw values in the preferences payload used by user archive export" do
     DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "name")
     job = Jobs::ExportUserArchive.new
