@@ -81,4 +81,29 @@ module("Integration | Component | social-profile-icons", function (hooks) {
     assert.ok(linkStyle.includes("--slc-badge-bg:#112233"));
     assert.ok(linkStyle.includes("--slc-badge-radius:4px"));
   });
+
+  test("renders FontAwesome and bundled-mask profiles together without dropping a platform", async function (assert) {
+    const outletArgs = { user: { social_profiles: [
+      { key: "instagram", label: "Instagram", href: "https://instagram.com/example", icon_name: "fab-instagram" },
+      { key: "youtube", label: "YouTube", href: "https://youtube.com/@example", icon_name: "fab-youtube" },
+      { key: "discord_profile", label: "Discord", href: "https://discord.com/users/123", icon_name: "fab-discord" },
+      { key: "pornhub", label: "Pornhub", href: "https://www.pornhub.com/users/example", icon_name: "globe", icon_mask_url: "/plugins/Discourse-Social-Profile-Plugin/images/social-profile/pornhub.svg" },
+    ] } };
+
+    await render(<template><SocialProfileIcons @outletArgs={{outletArgs}} /></template>);
+
+    assert.dom(".social-profile-icons").hasAttribute("data-social-profile-count", "4");
+    assert.dom('.social-profile-icons a[data-social-platform="instagram"]').exists();
+    assert.dom('.social-profile-icons a[data-social-platform="youtube"]').exists();
+    assert.dom('.social-profile-icons a[data-social-platform="discord_profile"]').exists();
+    assert.dom('.social-profile-icons a[data-social-platform="pornhub"]').exists();
+    assert.dom('.social-profile-icons a[data-social-platform="pornhub"] .slc-custom-icon').exists();
+
+    const containerStyle = document.querySelector(".social-profile-icons").getAttribute("style") || "";
+    const pornhubMaskStyle = document.querySelector('.social-profile-icons a[data-social-platform="pornhub"] .slc-custom-icon').getAttribute("style") || "";
+    assert.ok(containerStyle.includes("display:flex"));
+    assert.ok(containerStyle.includes("flex-direction:row"));
+    assert.ok(pornhubMaskStyle.includes("mask:url('/plugins/Discourse-Social-Profile-Plugin/images/social-profile/pornhub.svg')"));
+  });
+
 });

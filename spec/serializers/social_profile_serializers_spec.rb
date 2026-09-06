@@ -60,4 +60,32 @@ RSpec.describe "Social profile serializers" do
     expect(self_json[:social_profile_values]).to eq([{ platform_key: "serializer", platform_label: "Serializer", value: "owner" }])
     expect(UserSerializer.new(owner, scope: Guardian.new(viewer), root: false).as_json).not_to have_key(:social_profile_values)
   end
+
+  it "keeps bundled-mask platforms such as Pornhub in both profile serializers" do
+    pornhub =
+      DiscourseSocialProfile::Platform.create!(
+        key: "pornhub-test",
+        label: "Pornhub",
+        input_type: "handle",
+        base_url: "https://www.pornhub.com/users/",
+        allowed_hosts: "pornhub.com,.pornhub.com",
+        icon_name: "globe",
+        builtin_icon: "pornhub",
+        enabled: true,
+        position: 1,
+      )
+    DiscourseSocialProfile::Link.create!(user: owner, platform: pornhub, value: "owner")
+
+    profile_rows = UserSerializer.new(owner, scope: Guardian.new(viewer), root: false).as_json[:social_profiles]
+    card_rows = UserCardSerializer.new(owner, scope: Guardian.new(viewer), root: false).as_json[:social_profiles]
+
+    profile_pornhub = profile_rows.find { |row| row[:key] == "pornhub-test" }
+    card_pornhub = card_rows.find { |row| row[:key] == "pornhub-test" }
+
+    expect(profile_pornhub[:href]).to eq("https://www.pornhub.com/users/owner")
+    expect(card_pornhub[:href]).to eq("https://www.pornhub.com/users/owner")
+    expect(profile_pornhub[:icon_mask_url]).to end_with("/images/social-profile/pornhub.svg")
+    expect(card_pornhub[:icon_mask_url]).to end_with("/images/social-profile/pornhub.svg")
+  end
+
 end

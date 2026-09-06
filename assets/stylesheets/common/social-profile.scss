@@ -58,6 +58,32 @@
   }
 }
 
+// User cards apply a high-specificity `display: block` rule to spans inside
+// the name area. Keep the social row horizontal there as well as on the full
+// profile. Critical layout is also duplicated inline by the component so the
+// row and bundled masks remain usable even when theme CSS overrides this file.
+.user-card .first-row .names .social-profile-icons,
+.user-main .social-profile-icons {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.user-card .first-row .names .social-profile-icons > a,
+.user-main .social-profile-icons > a {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+}
+
+.user-card .first-row .names .social-profile-icons .slc-icon-frame {
+  display: inline-flex !important;
+}
+
 .social-profile-preferences {
   max-width: 1120px;
   margin-inline: auto;

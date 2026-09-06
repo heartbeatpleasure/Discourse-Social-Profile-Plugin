@@ -153,7 +153,15 @@ check(checks, "Profile icon CSS preserves Theme Component sizing semantics") do
   assert(css.include?("margin-right: 5px"), "5px spacing missing")
   assert(css.scan("1.2em").length >= 5, "1.2em sizing missing")
   assert(css.include?("0.85"), "badge glyph scale missing")
+  assert(css.include?(".user-card .first-row .names .social-profile-icons"), "user-card row override missing")
   assert(read("assets/stylesheets/mobile/social-profile.scss").include?("padding-bottom: 2em"), "mobile parity missing")
+end
+
+check(checks, "Critical profile icon layout and masks do not depend on stylesheet load order") do
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  assert(renderer.include?("flex-direction:row") && renderer.include?("display:inline-flex"), "inline row layout fallback missing")
+  assert(renderer.include?("-webkit-mask:url('") && renderer.include?("mask:url('"), "inline bundled-mask fallback missing")
+  assert(renderer.include?("data-social-platform") && renderer.include?("data-social-profile-count"), "render diagnostics missing")
 end
 
 check(checks, "Scheme-dependent badge parity") do
