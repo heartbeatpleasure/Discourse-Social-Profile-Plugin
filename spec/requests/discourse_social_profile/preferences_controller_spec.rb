@@ -61,7 +61,11 @@ RSpec.describe DiscourseSocialProfile::PreferencesController do
 
   it "also keeps an administrator on self-service ownership" do
     sign_in(admin)
-    put "/social-profile/preferences.json", params: { user_id: other_user.id, links: [{ platform_id: platform.id, value: "admin-self" }] }
+    put "/social-profile/preferences.json",
+        params: {
+          user_id: other_user.id,
+          social_profile_links: [{ platform_id: platform.id, value: "admin-self" }],
+        }
     expect(response.status).to eq(200)
     expect(DiscourseSocialProfile::Link.find_by(user: admin, platform: platform).value).to eq("admin-self")
     expect(DiscourseSocialProfile::Link.find_by(user: other_user, platform: platform)).to be_nil
@@ -153,6 +157,46 @@ RSpec.describe DiscourseSocialProfile::PreferencesController do
     put "/social-profile/preferences.json", params: { social_profile_links: [{ platform_id: platform.id, value: "a" }, { platform_id: platform.id + 100, value: "b" }] }
     expect(response.status).to eq(422)
     expect(response.parsed_body.dig("errors", "base")).to eq("too_many_platforms")
+  end
+
+  it "bounds numeric-key form batches before sorting or integer conversion" do
+    stub_const("DiscourseSocialProfile::PreferencesController::MAX_PREFERENCES_ENTRIES", 1)
+    sign_in(user)
+
+    put "/social-profile/preferences.json",
+        params: {
+          social_profile_links: {
+            "0" => { platform_id: platform.id, value: "a" },
+            "1" => { platform_id: platform.id + 100, value: "b" },
+          },
+        }
+    expect(response.status).to eq(422)
+    expect(response.parsed_body.dig("errors", "base")).to eq("too_many_platforms")
+
+    put "/social-profile/preferences.json",
+        params: {
+          social_profile_links: {
+            "999999999999999999999999999999999999999999" => {
+              platform_id: platform.id,
+              value: "a",
+            },
+          },
+        }
+    expect(response.status).to eq(400)
+  end
+
+  it "bounds preview validation on preferences reads without blocking the page" do
+    DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "alice")
+    stub_const("DiscourseSocialProfile::PreferencesController::PREVIEW_VALIDATION_BUDGET", -1.second)
+    allow(DiscourseSocialProfile::LinkBuilder).to receive(:call).and_raise("preview should be skipped")
+    sign_in(user)
+
+    get "/social-profile/preferences.json"
+    expect(response.status).to eq(200)
+    payload = response.parsed_body["platforms"].find { |row| row["id"] == platform.id }
+    expect(payload["value"]).to eq("alice")
+    expect(payload["preview_href"]).to be_nil
+    expect(payload["error_code"]).to be_nil
   end
 
   it "fails closed when the aggregate validation budget is exhausted" do

@@ -190,7 +190,9 @@ check(checks, "Preferences capacity is bounded by platform capacity") do
   model = read("app/models/discourse_social_profile/platform.rb")
   assert(model.include?("MAX_PLATFORMS = 250"), "platform bound missing")
   assert(prefs.include?("MAX_PREFERENCES_ENTRIES = Platform::MAX_PLATFORMS"), "shared capacity constant missing")
-  assert(prefs.index("raw_entries.length") < prefs.index("permitted_links(raw_entries)"), "oversize check occurs too late")
+  assert(prefs.index("raw_entries == :too_many") < prefs.index("permitted_links(raw_entries)"), "oversize sentinel check occurs too late")
+  assert(prefs.include?("return :too_many if raw.length > MAX_PREFERENCES_ENTRIES"), "form/hash batches are not bounded before key transformation")
+  assert(prefs.include?("key.length <= max_index_digits") && prefs.include?("key.to_i < MAX_PREFERENCES_ENTRIES"), "numeric form indices are not bounded before integer parsing")
 end
 
 check(checks, "Path regex compilation is bounded and cached") do
@@ -440,6 +442,7 @@ check(checks, "Aggregate validation and rendering work is time-bounded") do
   presenter = read("lib/discourse_social_profile/profile_presenter.rb")
   assert(prefs.include?("VALIDATION_BUDGET = 1.second") && prefs.include?("validation_deadline"), "preferences aggregate validation budget missing")
   assert(prefs.include?('errors[:base] = "validation_timed_out"'), "preferences validation budget does not fail closed")
+  assert(prefs.include?("PREVIEW_VALIDATION_BUDGET = 0.5.seconds") && prefs.include?("preview_deadline"), "preferences preview aggregate budget missing")
   assert(presenter.include?("PRESENTATION_BUDGET = 0.5.seconds") && presenter.include?("deadline"), "profile rendering aggregate budget missing")
 end
 

@@ -8,6 +8,7 @@ module ::DiscourseSocialProfile
 
     MAX_PREFERENCES_ENTRIES = Platform::MAX_PLATFORMS
     VALIDATION_BUDGET = 1.second
+    PREVIEW_VALIDATION_BUDGET = 0.5.seconds
 
     def index
       response.headers["Cache-Control"] = "no-store"
@@ -19,7 +20,7 @@ module ::DiscourseSocialProfile
       RateLimiter.new(current_user, "social-profile-preferences-save", 20, 1.minute).performed!
 
       raw_entries = raw_links
-      if raw_entries.length > MAX_PREFERENCES_ENTRIES
+      if raw_entries == :too_many || raw_entries.length > MAX_PREFERENCES_ENTRIES
         return render_json_dump(
           { success: false, errors: { base: "too_many_platforms" } },
           status: :unprocessable_entity,
@@ -137,15 +138,28 @@ module ::DiscourseSocialProfile
 
     def raw_links
       raw = params[:social_profile_links]
-      return raw if raw.is_a?(Array)
+      if raw.is_a?(Array)
+        return :too_many if raw.length > MAX_PREFERENCES_ENTRIES
+        return raw
+      end
 
       # Form-encoded API clients can serialize an array of objects as numeric
-      # keys. Keep this shape under the plugin-specific, log-filtered outer
-      # parameter; generic legacy aliases are deliberately not accepted.
+      # keys. Bound the hash before allocating/sorting its keys, and only parse
+      # canonical indices that can exist in an array capped at the platform
+      # limit. This avoids attacker-controlled huge integer conversions and
+      # unnecessary work before the normal capacity check.
       if raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
+        return :too_many if raw.length > MAX_PREFERENCES_ENTRIES
+
         keys = raw.keys.map(&:to_s)
-        if keys.all? { |key| key.match?(/\A\d+\z/) }
-          return keys.sort_by(&:to_i).map { |key| raw[key] || raw[key.to_sym] }
+        max_index_digits = (MAX_PREFERENCES_ENTRIES - 1).to_s.length
+        valid_indices =
+          keys.all? do |key|
+            key.length <= max_index_digits && key.match?(/\A(?:0|[1-9]\d*)\z/) &&
+              key.to_i < MAX_PREFERENCES_ENTRIES
+          end
+        if valid_indices
+          return keys.sort_by { |key| key.to_i }.map { |key| raw[key] || raw[key.to_sym] }
         end
       end
 
@@ -184,9 +198,20 @@ module ::DiscourseSocialProfile
           .ordered
           .includes(:icon_image_upload, :icon_mask_upload)
 
+      # Preview validation is presentation-only. Keep it under its own aggregate
+      # CPU budget so a large set of administrator-defined regex rules cannot make
+      # Preferences GET/Save responses expensive. Save validation remains separate
+      # and fail-closed; after this preview budget is exhausted we simply omit
+      # further previews/errors rather than misclassifying stored values.
+      preview_deadline =
+        Process.clock_gettime(Process::CLOCK_MONOTONIC) + PREVIEW_VALIDATION_BUDGET.to_f
+
       platforms.map do |platform|
         value = values[platform.id].to_s
-        result = value.present? ? LinkBuilder.call(platform, value) : nil
+        result = nil
+        if value.present? && Process.clock_gettime(Process::CLOCK_MONOTONIC) <= preview_deadline
+          result = LinkBuilder.call(platform, value)
+        end
         {
           id: platform.id,
           key: platform.key,
