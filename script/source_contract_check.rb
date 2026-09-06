@@ -231,6 +231,15 @@ check(checks, "Admin sidebar dashboard and Installed Plugins Settings stay separ
   assert(!nav_initializer.include?("addAdminPluginConfigurationNav"), "modern show-route nav must not control standalone landing")
 end
 
+check(checks, "Custom Ember pages have direct-reload Rails shell routes") do
+  plugin = read("plugin.rb")
+  assert(plugin.include?('get "/u/:username/preferences/social-profiles" => "users#show"'), "preferences direct-reload shell missing")
+  assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms" => "admin/plugins#index"'), "platforms direct-reload shell missing")
+  assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms/new" => "admin/plugins#index"'), "new-platform direct-reload shell missing")
+  assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms/:id/edit" => "admin/plugins#index"'), "edit-platform direct-reload shell missing")
+  assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/statistics" => "admin/plugins#index"'), "statistics direct-reload shell missing")
+end
+
 check(checks, "URL and identifier canonicalization follows parity contract") do
   b = read("lib/discourse_social_profile/link_builder.rb")
   assert(b.include?("normalize_identifier") && b.include?("URI.encode_www_form_component"), "identifier normalization missing")
@@ -256,6 +265,7 @@ check(checks, "Preferences JSON save and bounded icon previews") do
   assert(controller.include?('contentType: "application/json"') && controller.include?("JSON.stringify"), "preferences save is not JSON encoded")
   assert(controller.include?("@tracked platforms") && !controller.include?("this.model = response"), "preferences save may replace cached route model")
   assert(template.include?("SocialProfilePlatformIcon"), "shared platform icon component not used in preferences")
+  assert(template.include?("sp-prefs__grid") && template.include?("grid-template-columns: repeat(2"), "responsive two-column preferences layout missing")
   assert(icon.include?('width="24"') && icon.include?("width:24px") && icon.include?("mask:url"), "icon preview bounds/mask rendering missing")
 end
 
@@ -265,6 +275,9 @@ check(checks, "Admin platform table uses real icons and overview actions") do
   assert(table.include?("SocialProfilePlatformIcon"), "admin table does not render shared platform icons")
   assert(!table.include?(">#</th>"), "obsolete position column still rendered")
   assert(page.include?("/admin/plugins/social-profile") && page.include?("back_to_overview"), "platform overview action missing")
+  assert(page.include?("sp-platforms-page__hero") && page.include?("sp-platforms-page__primary-action"), "platform toolbar layout missing")
+  editor = read("admin/assets/javascripts/discourse/components/social-profile-platform-editor.gjs")
+  assert(editor.include?("sp-platform-editor__grid") && editor.include?("grid-template-columns: repeat(2"), "wide responsive platform editor layout missing")
 end
 
 check(checks, "Malformed request payloads fail closed") do

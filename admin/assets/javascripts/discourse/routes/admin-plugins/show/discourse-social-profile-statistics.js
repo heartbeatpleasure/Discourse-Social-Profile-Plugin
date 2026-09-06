@@ -1,13 +1,17 @@
-import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import DiscourseRoute from "discourse/routes/discourse";
 import { i18n } from "discourse-i18n";
 
 export default class AdminPluginsShowDiscourseSocialProfileStatisticsRoute extends DiscourseRoute {
-  @service router;
+  queryParams = {
+    refresh: { refreshModel: true },
+  };
 
-  async model() {
-    return await ajax("/admin/plugins/discourse-social-profile/statistics.json");
+  async model(params) {
+    const suffix = params?.refresh ? "?refresh=true" : "";
+    return await ajax(
+      `/admin/plugins/discourse-social-profile/statistics.json${suffix}`
+    );
   }
 
   titleToken() {
