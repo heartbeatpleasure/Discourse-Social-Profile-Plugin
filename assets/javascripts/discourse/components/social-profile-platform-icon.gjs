@@ -1,10 +1,15 @@
 import Component from "@glimmer/component";
+import { htmlSafe } from "@ember/template";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
+function stringValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function safeAssetUrl(value) {
-  const candidate = (value || "").trim();
+  const candidate = stringValue(value);
   if (!candidate || candidate.length > 2048 || CONTROL.test(candidate)) {
     return "";
   }
@@ -39,21 +44,21 @@ export default class SocialProfilePlatformIcon extends Component {
   get maskStyle() {
     const url = safeMaskUrl(this.args.maskUrl);
     if (!url) {
-      return "";
+      return null;
     }
 
-    return [
+    return htmlSafe([
       "display:inline-block",
       "width:24px",
       "height:24px",
       "background:currentColor",
       `-webkit-mask:url('${url}') no-repeat center / contain`,
       `mask:url('${url}') no-repeat center / contain`,
-    ].join(";");
+    ].join(";"));
   }
 
   get iconName() {
-    return this.args.iconName || "globe";
+    return stringValue(this.args.iconName) || "globe";
   }
 
   <template>

@@ -135,6 +135,13 @@ check(checks, "Scheme-dependent badge parity") do
   assert(gjs.include?("badgeBackgroundFor") && gjs.include?("dark || light") && gjs.include?("frameClass"), "badge scheme fallback missing")
 end
 
+check(checks, "Profile rendering fails closed without breaking Discourse UI") do
+  presenter = read("lib/discourse_social_profile/profile_presenter.rb")
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  assert(presenter.include?("rescue StandardError => e") && presenter.include?("profile presentation skipped"), "server presenter fail-closed guard missing")
+  assert(renderer.include?("normalizeLink") && renderer.include?("return null") && renderer.include?("htmlSafe"), "frontend renderer isolation/safe style missing")
+end
+
 check(checks, "Full-color upload format policy") do
   model = read("app/models/discourse_social_profile/platform.rb")
   assert(model.include?("%w[png jpg jpeg svg webp]") && model.include?("%w[svg]"), "upload extensions drift")
@@ -247,6 +254,7 @@ check(checks, "Preferences JSON save and bounded icon previews") do
   template = read("assets/javascripts/discourse/templates/preferences/social-profiles.gjs")
   icon = read("assets/javascripts/discourse/components/social-profile-platform-icon.gjs")
   assert(controller.include?('contentType: "application/json"') && controller.include?("JSON.stringify"), "preferences save is not JSON encoded")
+  assert(controller.include?("@tracked platforms") && !controller.include?("this.model = response"), "preferences save may replace cached route model")
   assert(template.include?("SocialProfilePlatformIcon"), "shared platform icon component not used in preferences")
   assert(icon.include?('width="24"') && icon.include?("width:24px") && icon.include?("mask:url"), "icon preview bounds/mask rendering missing")
 end

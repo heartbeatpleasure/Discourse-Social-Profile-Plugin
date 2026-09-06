@@ -7,20 +7,26 @@ import { i18n } from "discourse-i18n";
 
 export default class PreferencesSocialProfilesController extends Controller {
   @tracked saving = false;
+  @tracked platforms = [];
   @tracked values = {};
   @tracked errors = {};
   @tracked flash = null;
 
-  @action
-  setupValues() {
+  setPlatforms(platforms) {
+    this.platforms = Array.isArray(platforms) ? platforms : [];
     this.values = Object.fromEntries(
-      (this.model?.platforms || []).map((platform) => [platform.id, platform.value || ""])
+      this.platforms.map((platform) => [platform.id, platform.value || ""])
     );
     this.errors = Object.fromEntries(
-      (this.model?.platforms || [])
+      this.platforms
         .filter((platform) => platform.error_code)
         .map((platform) => [platform.id, platform.error_code])
     );
+  }
+
+  @action
+  setupValues() {
+    this.setPlatforms(this.model?.platforms);
   }
 
   @action
@@ -40,14 +46,18 @@ export default class PreferencesSocialProfilesController extends Controller {
         type: "PUT",
         contentType: "application/json",
         data: JSON.stringify({
-          links: (this.model?.platforms || []).map((platform) => ({
+          links: this.platforms.map((platform) => ({
             platform_id: platform.id,
             value: this.values[platform.id] || "",
           })),
         }),
       });
-      this.model = response;
-      this.setupValues();
+
+      // Keep the route's model object untouched. Preferences controllers are
+      // cached by Ember, and replacing `model` after a save can leak stale
+      // route state into later preference transitions. Only the plugin-owned
+      // tracked state is refreshed from the response.
+      this.setPlatforms(response?.platforms);
       this.flash = i18n("discourse_social_profile.preferences.saved");
     } catch (error) {
       const responseErrors = error?.jqXHR?.responseJSON?.errors;

@@ -14,7 +14,7 @@ export default <template>
     </div>
 
     <div class="social-profile-preferences__list">
-      {{#each @model.platforms as |platform|}}
+      {{#each @controller.platforms as |platform|}}
         <section class="social-profile-preferences__card">
           <div class="social-profile-preferences__card-header">
             <div class="social-profile-preferences__icon-frame">
