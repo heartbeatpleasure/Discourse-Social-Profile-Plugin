@@ -2,6 +2,47 @@
   padding-bottom: 2em;
 }
 
-.social-profile-preferences__row {
-  grid-template-columns: 1.5em minmax(0, 1fr);
+.social-profile-preferences {
+  &__tip-card {
+    grid-template-columns: 1fr;
+  }
+
+  &__grid {
+    grid-template-columns: 1fr;
+  }
+
+  &__card-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  &__status-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.social-profile-admin-toolbar {
+  justify-content: stretch;
+
+  .btn {
+    width: 100%;
+  }
+}
+
+.social-profile-stats-page {
+  &__hero-card {
+    padding: 1rem;
+  }
+
+  &__panel-grid,
+  &__metric-grid,
+  &__distribution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  &__click-total,
+  &__key-value-list > div {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

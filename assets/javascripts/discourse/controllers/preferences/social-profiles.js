@@ -13,7 +13,11 @@ export default class PreferencesSocialProfilesController extends Controller {
   @tracked flash = null;
 
   setPlatforms(platforms) {
-    this.platforms = Array.isArray(platforms) ? platforms : [];
+    this.platforms = (Array.isArray(platforms) ? platforms : []).map((platform) => ({
+      ...platform,
+      display_description: this.descriptionFor(platform),
+      display_placeholder: this.placeholderFor(platform),
+    }));
     this.values = Object.fromEntries(
       this.platforms.map((platform) => [platform.id, platform.value || ""])
     );
@@ -22,6 +26,49 @@ export default class PreferencesSocialProfilesController extends Controller {
         .filter((platform) => platform.error_code)
         .map((platform) => [platform.id, platform.error_code])
     );
+  }
+
+  descriptionFor(platform) {
+    const label = platform?.label || i18n("discourse_social_profile.preferences.profile_link");
+
+    switch (platform?.input_type) {
+      case "email":
+        return i18n("discourse_social_profile.preferences.card_help_email");
+      case "numeric_id":
+        return i18n(
+          "discourse_social_profile.preferences.card_help_numeric_id",
+          { label }
+        );
+      case "url_locked":
+        return i18n(
+          "discourse_social_profile.preferences.card_help_url_locked",
+          { label }
+        );
+      case "url_any_https":
+        return i18n(
+          "discourse_social_profile.preferences.card_help_url_any_https",
+          { label }
+        );
+      default:
+        return i18n(
+          "discourse_social_profile.preferences.card_help_handle",
+          { label }
+        );
+    }
+  }
+
+  placeholderFor(platform) {
+    switch (platform?.input_type) {
+      case "email":
+        return i18n("discourse_social_profile.preferences.placeholder_email");
+      case "numeric_id":
+        return i18n("discourse_social_profile.preferences.placeholder_numeric_id");
+      case "url_locked":
+      case "url_any_https":
+        return i18n("discourse_social_profile.preferences.placeholder_profile_link");
+      default:
+        return i18n("discourse_social_profile.preferences.placeholder_handle_or_link");
+    }
   }
 
   @action
@@ -53,10 +100,6 @@ export default class PreferencesSocialProfilesController extends Controller {
         }),
       });
 
-      // Keep the route's model object untouched. Preferences controllers are
-      // cached by Ember, and replacing `model` after a save can leak stale
-      // route state into later preference transitions. Only the plugin-owned
-      // tracked state is refreshed from the response.
       this.setPlatforms(response?.platforms);
       this.flash = i18n("discourse_social_profile.preferences.saved");
     } catch (error) {
