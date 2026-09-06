@@ -102,6 +102,25 @@ RSpec.describe DiscourseSocialProfile::Admin::PlatformsController do
     expect(platform.reload.input_type).to eq("handle")
   end
 
+  it "allows an in-use platform to be disabled and re-enabled without deleting member data" do
+    link = DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "alice")
+    sign_in(admin)
+
+    put "/admin/plugins/discourse-social-profile/platforms/#{platform.id}.json", params: {
+      platform: { enabled: false },
+    }
+    expect(response.status).to eq(200)
+    expect(platform.reload.enabled).to eq(false)
+    expect(link.reload.value).to eq("alice")
+
+    put "/admin/plugins/discourse-social-profile/platforms/#{platform.id}.json", params: {
+      platform: { enabled: true },
+    }
+    expect(response.status).to eq(200)
+    expect(platform.reload.enabled).to eq(true)
+    expect(link.reload.value).to eq("alice")
+  end
+
   it "allows validation repairs while disabled and re-audits all stored links before re-enabling" do
     link = DiscourseSocialProfile::Link.create!(user: user, platform: platform, value: "alice")
     sign_in(admin)

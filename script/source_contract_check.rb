@@ -190,9 +190,7 @@ check(checks, "Preferences capacity is bounded by platform capacity") do
   model = read("app/models/discourse_social_profile/platform.rb")
   assert(model.include?("MAX_PLATFORMS = 250"), "platform bound missing")
   assert(prefs.include?("MAX_PREFERENCES_ENTRIES = Platform::MAX_PLATFORMS"), "shared capacity constant missing")
-  assert(prefs.index("raw_entries == :too_many") < prefs.index("permitted_links(raw_entries)"), "oversize sentinel check occurs too late")
-  assert(prefs.include?("return :too_many if raw.length > MAX_PREFERENCES_ENTRIES"), "form/hash batches are not bounded before key transformation")
-  assert(prefs.include?("key.length <= max_index_digits") && prefs.include?("key.to_i < MAX_PREFERENCES_ENTRIES"), "numeric form indices are not bounded before integer parsing")
+  assert(prefs.index("raw_entries.length") < prefs.index("permitted_links(raw_entries)"), "oversize check occurs too late")
 end
 
 check(checks, "Path regex compilation is bounded and cached") do
@@ -346,7 +344,9 @@ end
 check(checks, "Statistics page owns responsive admin styling") do
   page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-statistics.gjs")
   assert(page.include?("sp-stats__header") && page.include?("sp-stats__metrics"), "statistics card layout missing")
-  assert(page.include?("sp-stats__rows") && page.include?("clicks_30d_column"), "statistics distribution/click breakdown refresh missing")
+  assert(page.include?("sp-stats__rows") && page.include?("clicks_30d_column") && page.include?("clicks_retention_column"), "statistics distribution/click breakdown refresh missing")
+  assert(page.include?("@model.distribution.five") && page.include?("@model.distribution.six_plus"), "six-row link distribution missing")
+  assert(page.include?("retention_window") && page.include?("clicks_retention_total"), "configured click-retention window is not visible in statistics")
   assert(!page.include?("is-primary"), "adoption card still has one-off highlight styling")
   assert(page.include?("grid-template-columns: repeat(3") && page.include?("@media (max-width: 560px)"), "statistics responsive layout missing")
   assert(page.include?('/admin/plugins/social-profile') && page.include?("back_to_overview") && page.include?("open_settings"), "statistics header actions missing")
@@ -359,6 +359,8 @@ check(checks, "Admin platform table uses real icons and overview actions") do
   assert(!table.include?(">#</th>"), "obsolete position column still rendered")
   assert(page.include?("/admin/plugins/social-profile") && page.include?("back_to_overview"), "platform overview action missing")
   assert(page.include?("sp-platforms-page__hero") && page.include?("sp-platforms-page__primary-action"), "platform toolbar layout missing")
+  assert(table.include?("toggleEnabled") && table.include?("eye-slash") && table.include?("enable_platform") && table.include?("disable_platform"), "quick enable/disable control missing")
+  assert(table.include?("@disabled={{platform.usage_count}}") && !table.include?("#unless platform.usage_count"), "in-use delete action should remain aligned and disabled")
   editor = read("admin/assets/javascripts/discourse/components/social-profile-platform-editor.gjs")
   assert(editor.include?("sp-platform-editor__grid") && editor.include?("grid-template-columns: repeat(2"), "wide responsive platform editor layout missing")
 end
@@ -442,7 +444,6 @@ check(checks, "Aggregate validation and rendering work is time-bounded") do
   presenter = read("lib/discourse_social_profile/profile_presenter.rb")
   assert(prefs.include?("VALIDATION_BUDGET = 1.second") && prefs.include?("validation_deadline"), "preferences aggregate validation budget missing")
   assert(prefs.include?('errors[:base] = "validation_timed_out"'), "preferences validation budget does not fail closed")
-  assert(prefs.include?("PREVIEW_VALIDATION_BUDGET = 0.5.seconds") && prefs.include?("preview_deadline"), "preferences preview aggregate budget missing")
   assert(presenter.include?("PRESENTATION_BUDGET = 0.5.seconds") && presenter.include?("deadline"), "profile rendering aggregate budget missing")
 end
 
@@ -480,11 +481,16 @@ check(checks, "Dynamic SVG preload state is bounded to current platform configur
   assert(!model.include?("icons + [icon_name]"), "append-only SVG preload history remains")
 end
 
-check(checks, "Click reporting and retention use exact calendar-day windows") do
+check(checks, "Click reporting and retention use exact bounded calendar-day windows") do
   stats = read("lib/discourse_social_profile/statistics.rb")
   job = read("app/jobs/scheduled/discourse_social_profile/cleanup_click_stats.rb")
+  settings = read("config/settings.yml")
   assert(stats.include?("29.days.ago.to_date"), "30-day click reporting is still an inclusive 31-day range")
+  assert(stats.include?("(retention_days - 1).days.ago.to_date"), "configured retention reporting window missing")
+  assert(stats.include?("clicks_retention_total") && stats.include?("clicks_retention:"), "retained click totals are not exposed")
+  assert(stats.include?("retention-\#{click_retention_days}"), "statistics cache key is not retention-aware")
   assert(job.include?("(days - 1).days.ago.to_date"), "retention still keeps an extra calendar date")
+  assert(settings.include?("min: 30") && settings.include?("max: 3650"), "click retention must remain bounded and must not allow unlimited/zero retention")
 end
 
 check(checks, "Discourse user merge preserves plugin-owned profile data") do

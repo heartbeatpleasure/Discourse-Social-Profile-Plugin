@@ -72,7 +72,7 @@ export default <template>
     }
     .sp-platforms-page__table-shell .social-profile-platforms-table {
       width: 100%;
-      min-width: 760px;
+      min-width: 74rem;
     }
     @media (max-width: 760px) {
       .sp-platforms-page__hero { flex-direction: column; }

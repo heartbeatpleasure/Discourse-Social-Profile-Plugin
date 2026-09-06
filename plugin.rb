@@ -20,7 +20,7 @@ register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.17"
+  VERSION = "0.1.16"
   BUNDLED_MASKS = %w[
     onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask
     kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale

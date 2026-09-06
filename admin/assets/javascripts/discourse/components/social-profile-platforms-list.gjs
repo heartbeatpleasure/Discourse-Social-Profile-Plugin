@@ -1,4 +1,5 @@
 import Component from "@glimmer/component";
+import { tracked } from "@glimmer/tracking";
 import { array, fn } from "@ember/helper";
 import { action } from "@ember/object";
 import { LinkTo } from "@ember/routing";
@@ -7,12 +8,14 @@ import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import SocialProfilePlatformIcon from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platform-icon";
 import DButton from "discourse/ui-kit/d-button";
-import { or } from "discourse/truth-helpers";
+import { eq, or } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 export default class SocialProfilePlatformsList extends Component {
   @service dialog;
   @service router;
+
+  @tracked togglingPlatformId = null;
 
   @action
   async move(index, delta) {
@@ -34,7 +37,34 @@ export default class SocialProfilePlatformsList extends Component {
   }
 
   @action
+  async toggleEnabled(platform) {
+    if (this.togglingPlatformId) {
+      return;
+    }
+
+    this.togglingPlatformId = platform.id;
+    try {
+      await ajax(
+        `/admin/plugins/discourse-social-profile/platforms/${platform.id}.json`,
+        {
+          type: "PUT",
+          data: { platform: { enabled: !platform.enabled } },
+        }
+      );
+      this.router.refresh();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.togglingPlatformId = null;
+    }
+  }
+
+  @action
   async remove(platform) {
+    if (platform.usage_count) {
+      return;
+    }
+
     const confirmed = await this.dialog.yesNoConfirm({
       message: i18n("discourse_social_profile.admin.platforms.delete_confirm", {
         label: platform.label,
@@ -65,6 +95,9 @@ export default class SocialProfilePlatformsList extends Component {
           <th class="d-table__cell --input">Input</th>
           <th class="d-table__cell --status">Status</th>
           <th class="d-table__cell --users">Users</th>
+          <th class="d-table__cell --toggle">
+            {{i18n "discourse_social_profile.admin.platforms.quick_toggle"}}
+          </th>
           <th class="d-table__cell --controls"></th>
         </tr>
       </thead>
@@ -87,15 +120,31 @@ export default class SocialProfilePlatformsList extends Component {
             <td class="d-table__cell --key"><code>{{platform.key}}</code></td>
             <td class="d-table__cell --input">{{platform.input_type}}</td>
             <td class="d-table__cell --status">
-              {{if
-                platform.enabled
-                (i18n "discourse_social_profile.admin.platforms.enabled")
-                (i18n "discourse_social_profile.admin.platforms.disabled")
-              }}
+              <span class={{if platform.enabled "sp-platform-status is-enabled" "sp-platform-status is-disabled"}}>
+                {{if
+                  platform.enabled
+                  (i18n "discourse_social_profile.admin.platforms.enabled")
+                  (i18n "discourse_social_profile.admin.platforms.disabled")
+                }}
+              </span>
             </td>
             <td class="d-table__cell --users">{{platform.usage_count}}</td>
+            <td class="d-table__cell --toggle">
+              <DButton
+                @action={{fn this.toggleEnabled platform}}
+                @icon={{if platform.enabled "eye" "eye-slash"}}
+                @title={{if
+                  platform.enabled
+                  "discourse_social_profile.admin.platforms.disable_platform"
+                  "discourse_social_profile.admin.platforms.enable_platform"
+                }}
+                @isLoading={{eq this.togglingPlatformId platform.id}}
+                @disabled={{this.togglingPlatformId}}
+                class={{if platform.enabled "btn-small btn-flat sp-platform-toggle is-enabled" "btn-small btn-flat sp-platform-toggle is-disabled"}}
+              />
+            </td>
             <td class="d-table__cell --controls">
-              <div class="d-table__cell-actions">
+              <div class="d-table__cell-actions social-profile-platform-actions">
                 <DButton
                   @action={{fn this.move index -1}}
                   @icon="arrow-up"
@@ -112,15 +161,20 @@ export default class SocialProfilePlatformsList extends Component {
                   @route="adminPlugins.show.discourse-social-profile-platforms.edit"
                   @routeModels={{array platform.id}}
                   @icon="pencil"
+                  @title="discourse_social_profile.admin.platforms.edit"
                   class="btn-small btn-default"
                 />
-                {{#unless platform.usage_count}}
-                  <DButton
-                    @action={{fn this.remove platform}}
-                    @icon="trash-can"
-                    class="btn-small btn-danger"
-                  />
-                {{/unless}}
+                <DButton
+                  @action={{fn this.remove platform}}
+                  @icon="trash-can"
+                  @title={{if
+                    platform.usage_count
+                    "discourse_social_profile.admin.platforms.delete_in_use"
+                    "discourse_social_profile.admin.platforms.delete_platform"
+                  }}
+                  @disabled={{platform.usage_count}}
+                  class={{if platform.usage_count "btn-small btn-default sp-delete-disabled" "btn-small btn-danger"}}
+                />
               </div>
             </td>
           </tr>

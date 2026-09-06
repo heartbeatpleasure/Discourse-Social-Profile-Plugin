@@ -230,7 +230,7 @@ export default <template>
 
     .sp-stats__table {
       width: 100%;
-      min-width: 42rem;
+      min-width: 50rem;
     }
 
     .sp-stats__table .d-table__cell {
@@ -254,12 +254,39 @@ export default <template>
       font-weight: 700;
     }
 
+    .sp-stats__retention-link {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      min-height: 2rem;
+      padding: .3rem .65rem;
+      border-radius: 999px;
+      background: var(--sp-alt);
+      color: var(--tertiary);
+      font-size: var(--font-down-1);
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .sp-stats__retention-link:hover {
+      background: var(--tertiary-very-low);
+      color: var(--tertiary-hover);
+    }
+
+    .sp-stats__click-totals {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .7rem;
+      margin-bottom: .8rem;
+    }
+
     .sp-stats__click-total {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       gap: 1rem;
-      margin-bottom: .8rem;
+      margin: 0;
       padding: .85rem 1rem;
       border-radius: 14px;
       background: var(--sp-alt);
@@ -382,6 +409,10 @@ export default <template>
         align-items: flex-start;
       }
 
+      .sp-stats__click-totals {
+        grid-template-columns: 1fr;
+      }
+
       .sp-stats__click-row {
         grid-template-columns: minmax(0, 1fr) auto;
       }
@@ -487,8 +518,12 @@ export default <template>
             <span class="sp-stats__row-value"><strong>{{@model.distribution.four}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
           </div>
           <div class="sp-stats__row">
-            <span class="sp-stats__row-label">5+ links</span>
-            <span class="sp-stats__row-value"><strong>{{@model.distribution.five_plus}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+            <span class="sp-stats__row-label">5 links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.five}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">6+ links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.six_plus}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
           </div>
         </div>
       </article>
@@ -529,6 +564,11 @@ export default <template>
           <h2>{{i18n "discourse_social_profile.admin.statistics.platforms_title"}}</h2>
           <p>{{i18n "discourse_social_profile.admin.statistics.platforms_help"}}</p>
         </div>
+        {{#if @model.click_tracking_enabled}}
+          <a class="sp-stats__retention-link" href={{settingsUrl}}>
+            {{i18n "discourse_social_profile.admin.statistics.retention_window" days=@model.click_retention_days}}
+          </a>
+        {{/if}}
       </div>
 
       <div class="sp-stats__table-wrap">
@@ -540,6 +580,11 @@ export default <template>
               <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
               {{#if @model.click_tracking_enabled}}
                 <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.clicks_30d_column"}}</th>
+                {{#unless @model.click_retention_matches_30d}}
+                  <th class="d-table__cell">
+                    {{i18n "discourse_social_profile.admin.statistics.clicks_retention_column" days=@model.click_retention_days}}
+                  </th>
+                {{/unless}}
               {{/if}}
             </tr>
           </thead>
@@ -551,6 +596,9 @@ export default <template>
                 <td class="d-table__cell"><span class="sp-stats__share-pill">{{platform.percentage_of_linked_users}}%</span></td>
                 {{#if @model.click_tracking_enabled}}
                   <td class="d-table__cell">{{platform.clicks_30d}}</td>
+                  {{#unless @model.click_retention_matches_30d}}
+                    <td class="d-table__cell">{{platform.clicks_retention}}</td>
+                  {{/unless}}
                 {{/if}}
               </tr>
             {{/each}}
@@ -566,12 +614,25 @@ export default <template>
             <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.engagement"}}</div>
             <h2>{{i18n "discourse_social_profile.admin.statistics.clicks_title"}}</h2>
           </div>
+          {{#if @model.click_tracking_enabled}}
+            <a class="sp-stats__retention-link" href={{settingsUrl}}>
+              {{i18n "discourse_social_profile.admin.statistics.retention_window" days=@model.click_retention_days}}
+            </a>
+          {{/if}}
         </div>
 
         {{#if @model.click_tracking_enabled}}
-          <div class="sp-stats__click-total">
-            <span>{{i18n "discourse_social_profile.admin.statistics.clicks_last_30d"}}</span>
-            <strong>{{@model.clicks_30d_total}}</strong>
+          <div class="sp-stats__click-totals">
+            <div class="sp-stats__click-total">
+              <span>{{i18n "discourse_social_profile.admin.statistics.clicks_last_30d"}}</span>
+              <strong>{{@model.clicks_30d_total}}</strong>
+            </div>
+            {{#unless @model.click_retention_matches_30d}}
+              <div class="sp-stats__click-total">
+                <span>{{i18n "discourse_social_profile.admin.statistics.clicks_retention_total" days=@model.click_retention_days}}</span>
+                <strong>{{@model.clicks_retention_total}}</strong>
+              </div>
+            {{/unless}}
           </div>
 
           {{#if @model.clicks.length}}

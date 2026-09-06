@@ -8,7 +8,7 @@ en:
     discourse_social_profile_use_platform_colors: "Use per-platform light/dark icon colors when configured."
     discourse_social_profile_allow_external_icon_urls: "Allow administrator-configured external HTTPS icon URLs. Native uploads are safer and preferred; external icons make third-party browser requests and can expose visitor IP addresses. External mask URLs are rendered as no-referrer images rather than CSS masks to avoid leaking the forum/profile URL in a Referer header."
     discourse_social_profile_track_clicks: "Track privacy-minimal aggregate clicks per platform/day. The plugin stores no per-user click history; normal Discourse/web-server request logs still apply. Disabled by default."
-    discourse_social_profile_click_stats_retention_days: "Days to keep aggregate click statistics."
+    discourse_social_profile_click_stats_retention_days: "Days to keep aggregate click statistics. Allowed range: 30-3650 days; 0/unlimited retention is not supported."
     discourse_social_profile_extra_svg_icons: "Additional Discourse SVG icon names used by custom social platforms."
   discourse_social_profile:
     errors:
