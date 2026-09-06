@@ -266,7 +266,16 @@ check(checks, "Preferences JSON save and bounded icon previews") do
   assert(controller.include?("@tracked platforms") && !controller.include?("this.model = response"), "preferences save may replace cached route model")
   assert(template.include?("SocialProfilePlatformIcon"), "shared platform icon component not used in preferences")
   assert(template.include?("sp-prefs__grid") && template.include?("grid-template-columns: repeat(2"), "responsive two-column preferences layout missing")
+  assert(template.include?(".user-preferences .form-vertical:has(.sp-prefs)") && template.include?("height: 3rem !important"), "wide preferences shell or fixed input sizing missing")
+  assert(!template.include?("sp-prefs__tip"), "obsolete preferences tip block still rendered")
   assert(icon.include?('width="24"') && icon.include?("width:24px") && icon.include?("mask:url"), "icon preview bounds/mask rendering missing")
+end
+
+check(checks, "Statistics page owns responsive admin styling") do
+  page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-statistics.gjs")
+  assert(page.include?("sp-stats__header") && page.include?("sp-stats__metrics"), "statistics card layout missing")
+  assert(page.include?("grid-template-columns: repeat(3") && page.include?("@media (max-width: 560px)"), "statistics responsive layout missing")
+  assert(page.include?('/admin/plugins/social-profile') && page.include?("back_to_overview") && page.include?("open_settings"), "statistics header actions missing")
 end
 
 check(checks, "Admin platform table uses real icons and overview actions") do

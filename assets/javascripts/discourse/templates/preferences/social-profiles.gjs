@@ -3,12 +3,18 @@ import { on } from "@ember/modifier";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { eq, or } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
-import dIcon from "discourse/ui-kit/helpers/d-icon";
 import SocialProfilePlatformIcon from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platform-icon";
 import { i18n } from "discourse-i18n";
 
 export default <template>
   <style>
+    /* Discourse intentionally keeps normal preference forms narrow. This page
+       is a card-based profile picker, so widen only the form that contains it. */
+    .user-preferences .form-vertical:has(.sp-prefs) {
+      width: 100%;
+      max-width: none;
+    }
+
     .sp-prefs {
       --sp-prefs-border: var(--primary-low);
       --sp-prefs-muted: var(--primary-medium);
@@ -17,61 +23,57 @@ export default <template>
       display: grid;
       gap: 1rem;
       width: 100%;
-      max-width: 1120px;
+      max-width: none;
       min-width: 0;
-      margin: 0 auto;
+      margin: 0;
     }
-    .sp-prefs h2, .sp-prefs h3, .sp-prefs p { margin: 0; }
+
+    .sp-prefs h2,
+    .sp-prefs p {
+      margin: 0;
+    }
+
     .sp-prefs__hero {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 1.25rem;
-      padding: 1.2rem 1.3rem;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 1.25rem 1.35rem;
       border: 1px solid var(--sp-prefs-border);
       border-radius: 18px;
       background: linear-gradient(180deg, var(--sp-prefs-surface), var(--sp-prefs-alt));
       box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
     }
+
     .sp-prefs__hero-copy {
       display: grid;
-      gap: .4rem;
+      gap: .45rem;
+      width: 100%;
       min-width: 0;
-      max-width: 50rem;
     }
+
     .sp-prefs__hero-copy h2 {
-      font-size: clamp(1.65rem, 1.25rem + 1.25vw, 2.25rem);
+      font-size: clamp(1.7rem, 1.3rem + 1.15vw, 2.3rem);
       line-height: 1.1;
     }
+
     .sp-prefs__hero-copy p {
+      max-width: 62rem;
       color: var(--sp-prefs-muted);
+      font-size: var(--font-up-1);
       line-height: 1.5;
     }
-    .sp-prefs__tip {
-      display: inline-flex;
-      flex: 0 0 auto;
-      align-items: center;
-      gap: .45rem;
-      max-width: 23rem;
-      padding: .65rem .8rem;
-      border: 1px solid var(--tertiary-low);
-      border-radius: 12px;
-      background: var(--tertiary-very-low);
-      color: var(--primary);
-      font-size: var(--font-down-1);
-      line-height: 1.35;
-    }
-    .sp-prefs__tip .svg-icon {
-      flex: 0 0 auto;
-      color: var(--tertiary);
-    }
+
     .sp-prefs__grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
+      width: 100%;
+      min-width: 0;
     }
+
     .sp-prefs__card {
       display: grid;
+      grid-template-rows: auto auto;
+      align-content: start;
       gap: .9rem;
       min-width: 0;
       padding: 1rem 1.05rem 1.05rem;
@@ -81,51 +83,77 @@ export default <template>
       box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
       transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease;
     }
+
     .sp-prefs__card:hover,
     .sp-prefs__card:focus-within {
       border-color: var(--tertiary-low);
       box-shadow: 0 6px 18px rgb(0 0 0 / 6%);
       transform: translateY(-1px);
     }
+
     .sp-prefs__card-header {
+      position: relative;
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: .8rem;
-      align-items: center;
+      grid-template-columns: 3rem minmax(0, 1fr);
+      gap: .9rem;
+      align-items: start;
+      height: 6.1rem;
+      min-width: 0;
+      padding-right: 6.9rem;
+      box-sizing: border-box;
     }
+
     .sp-prefs__icon {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 2.8rem;
-      height: 2.8rem;
-      border-radius: 13px;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 14px;
       background: var(--sp-prefs-alt);
       color: var(--tertiary);
     }
+
     .sp-prefs__icon .social-profile-platform-icon,
     .sp-prefs__icon .social-profile-platform-icon__image,
     .sp-prefs__icon .social-profile-platform-icon__mask,
     .sp-prefs__icon .svg-icon {
       display: block;
-      width: 1.35rem !important;
-      height: 1.35rem !important;
+      width: 1.45rem !important;
+      height: 1.45rem !important;
     }
+
+    .sp-prefs__text {
+      min-width: 0;
+    }
+
     .sp-prefs__name {
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
       font-size: var(--font-up-1);
       font-weight: 700;
-      line-height: 1.2;
+      line-height: 1.25;
     }
+
     .sp-prefs__help {
-      margin-top: .18rem;
+      display: -webkit-box;
+      overflow: hidden;
+      margin-top: .25rem;
       color: var(--sp-prefs-muted);
       font-size: var(--font-down-1);
       line-height: 1.4;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
     }
+
     .sp-prefs__configured {
+      position: absolute;
+      top: 0;
+      right: 0;
       display: inline-flex;
       align-items: center;
-      align-self: start;
       padding: .28rem .58rem;
       border-radius: 999px;
       background: var(--success-low);
@@ -134,21 +162,32 @@ export default <template>
       font-weight: 700;
       white-space: nowrap;
     }
+
     .sp-prefs__field {
       display: grid;
-      gap: .4rem;
+      align-content: start;
+      gap: .45rem;
+      min-width: 0;
     }
+
     .sp-prefs__input {
+      display: block;
+      align-self: start;
       box-sizing: border-box;
-      width: 100%;
-      min-height: 2.8rem;
-      margin: 0;
+      width: 100% !important;
+      height: 3rem !important;
+      min-height: 3rem !important;
+      max-height: 3rem !important;
+      margin: 0 !important;
+      padding: .65rem .75rem;
     }
+
     .sp-prefs__error {
       color: var(--danger);
       font-size: var(--font-down-1);
       line-height: 1.35;
     }
+
     .sp-prefs__preview {
       display: grid;
       gap: .18rem;
@@ -157,8 +196,15 @@ export default <template>
       font-size: var(--font-down-1);
       line-height: 1.35;
     }
-    .sp-prefs__preview strong { color: var(--primary); }
-    .sp-prefs__preview a { overflow-wrap: anywhere; }
+
+    .sp-prefs__preview strong {
+      color: var(--primary);
+    }
+
+    .sp-prefs__preview a {
+      overflow-wrap: anywhere;
+    }
+
     .sp-prefs__actions {
       display: flex;
       flex-wrap: wrap;
@@ -166,21 +212,58 @@ export default <template>
       gap: .75rem;
       padding-top: .25rem;
     }
+
     .sp-prefs__flash {
       color: var(--success);
       font-weight: 600;
     }
-    @media (max-width: 900px) {
-      .sp-prefs__hero { flex-direction: column; }
-      .sp-prefs__tip { max-width: none; }
+
+    @media (max-width: 820px) {
+      .sp-prefs__grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sp-prefs__card-header {
+        height: auto;
+        min-height: 5.5rem;
+      }
     }
-    @media (max-width: 720px) {
-      .sp-prefs__grid { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 480px) {
-      .sp-prefs__hero, .sp-prefs__card { padding: .9rem; }
-      .sp-prefs__card-header { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
-      .sp-prefs__configured { grid-column: 2; justify-self: start; }
+
+    @media (max-width: 520px) {
+      .sp-prefs__hero,
+      .sp-prefs__card {
+        padding: .9rem;
+        border-radius: 14px;
+      }
+
+      .sp-prefs__hero-copy p {
+        font-size: var(--font-0);
+      }
+
+      .sp-prefs__card-header {
+        grid-template-columns: 2.7rem minmax(0, 1fr);
+        min-height: 0;
+        height: auto;
+        padding-right: 0;
+      }
+
+      .sp-prefs__icon {
+        width: 2.7rem;
+        height: 2.7rem;
+      }
+
+      .sp-prefs__configured {
+        position: static;
+        grid-column: 2;
+        justify-self: start;
+        margin-top: .35rem;
+      }
+
+      .sp-prefs__name,
+      .sp-prefs__help {
+        display: block;
+        overflow: visible;
+      }
     }
   </style>
 
@@ -189,10 +272,6 @@ export default <template>
       <div class="sp-prefs__hero-copy">
         <h2>{{i18n "discourse_social_profile.preferences.title"}}</h2>
         <p>{{i18n "discourse_social_profile.preferences.description"}}</p>
-      </div>
-      <div class="sp-prefs__tip">
-        {{dIcon "link"}}
-        <span>{{i18n "discourse_social_profile.preferences.tip_body"}}</span>
       </div>
     </section>
 
@@ -208,7 +287,7 @@ export default <template>
               />
             </div>
 
-            <div>
+            <div class="sp-prefs__text">
               <div class="sp-prefs__name">{{platform.label}}</div>
               <div class="sp-prefs__help">{{platform.display_description}}</div>
             </div>

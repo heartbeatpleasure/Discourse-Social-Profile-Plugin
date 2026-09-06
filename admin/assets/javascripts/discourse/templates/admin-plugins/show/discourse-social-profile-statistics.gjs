@@ -1,8 +1,7 @@
 import getURL from "discourse/lib/get-url";
-import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
 
-const overviewUrl = getURL("/admin/plugins/Discourse-Social-Profile-Plugin");
+const overviewUrl = getURL("/admin/plugins/social-profile");
 const settingsUrl = getURL(
   "/admin/site_settings/category/all_results?filter=discourse_social_profile"
 );
@@ -11,232 +10,572 @@ const statisticsRefreshUrl = getURL(
 );
 
 export default <template>
-  <section class="admin-detail social-profile-admin-page">
-    <DPageSubheader
-      @titleLabel={{i18n "discourse_social_profile.admin.statistics.title"}}
-      @descriptionLabel={{i18n "discourse_social_profile.admin.statistics.description"}}
-    />
+  <style>
+    .sp-stats {
+      --sp-stats-border: var(--primary-low);
+      --sp-stats-muted: var(--primary-medium);
+      --sp-stats-surface: var(--secondary);
+      --sp-stats-alt: var(--primary-very-low);
+      display: grid;
+      gap: 1rem;
+      width: 100%;
+      min-width: 0;
+    }
 
-    <div class="social-profile-admin-toolbar">
-      <a class="btn btn-default" href={{overviewUrl}}>
-        {{i18n "discourse_social_profile.admin.common.back_to_overview"}}
-      </a>
-      <a class="btn btn-default" href={{settingsUrl}}>
-        {{i18n "discourse_social_profile.admin.common.open_settings"}}
-      </a>
-      <a class="btn btn-primary" href={{statisticsRefreshUrl}}>
-        {{i18n "discourse_social_profile.admin.statistics.refresh"}}
-      </a>
+    .sp-stats h1,
+    .sp-stats h2,
+    .sp-stats h3,
+    .sp-stats p {
+      margin: 0;
+    }
+
+    .sp-stats__header,
+    .sp-stats__metric,
+    .sp-stats__panel {
+      box-sizing: border-box;
+      border: 1px solid var(--sp-stats-border);
+      border-radius: 18px;
+      background: var(--sp-stats-surface);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
+    }
+
+    .sp-stats__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.25rem;
+      padding: 1.25rem 1.35rem;
+      background: linear-gradient(180deg, var(--sp-stats-surface), var(--sp-stats-alt));
+    }
+
+    .sp-stats__header-copy {
+      display: grid;
+      gap: .4rem;
+      min-width: 0;
+      max-width: 58rem;
+    }
+
+    .sp-stats__header-copy h1 {
+      font-size: clamp(1.7rem, 1.35rem + 1vw, 2.2rem);
+      line-height: 1.1;
+    }
+
+    .sp-stats__header-copy p,
+    .sp-stats__panel-header p,
+    .sp-stats__metric p,
+    .sp-stats__empty p,
+    .sp-stats__guide p {
+      color: var(--sp-stats-muted);
+      line-height: 1.45;
+    }
+
+    .sp-stats__header-actions {
+      display: flex;
+      flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: .6rem;
+    }
+
+    .sp-stats__header-actions .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.55rem;
+      margin: 0;
+      padding-inline: 1rem;
+      white-space: nowrap;
+    }
+
+    .sp-stats__section-heading {
+      display: grid;
+      gap: .25rem;
+      margin: .15rem 0 -.15rem;
+    }
+
+    .sp-stats__section-heading p {
+      color: var(--sp-stats-muted);
+    }
+
+    .sp-stats__metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .sp-stats__metric {
+      display: grid;
+      align-content: start;
+      gap: .45rem;
+      min-width: 0;
+      min-height: 9.5rem;
+      padding: 1rem 1.05rem;
+    }
+
+    .sp-stats__metric.is-primary {
+      border-color: var(--tertiary-low);
+      background: linear-gradient(180deg, var(--sp-stats-surface), var(--tertiary-very-low));
+    }
+
+    .sp-stats__metric-label,
+    .sp-stats__eyebrow {
+      color: var(--sp-stats-muted);
+      font-size: var(--font-down-1);
+      font-weight: 700;
+    }
+
+    .sp-stats__metric strong {
+      font-size: clamp(1.75rem, 1.3rem + 1.2vw, 2.35rem);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .sp-stats__panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .sp-stats__panel {
+      min-width: 0;
+      padding: 1rem 1.05rem 1.05rem;
+    }
+
+    .sp-stats__panel.is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .sp-stats__panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .9rem;
+    }
+
+    .sp-stats__eyebrow {
+      display: inline-flex;
+      width: max-content;
+      margin-bottom: .35rem;
+      padding: .28rem .58rem;
+      border-radius: 999px;
+      background: var(--sp-stats-alt);
+      line-height: 1;
+    }
+
+    .sp-stats__panel-header h2 {
+      font-size: var(--font-up-2);
+    }
+
+    .sp-stats__distribution {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: .7rem;
+    }
+
+    .sp-stats__distribution-item {
+      display: grid;
+      gap: .15rem;
+      min-width: 0;
+      padding: .8rem;
+      border-radius: 14px;
+      background: var(--sp-stats-alt);
+      text-align: center;
+    }
+
+    .sp-stats__distribution-item span,
+    .sp-stats__distribution-item small {
+      color: var(--sp-stats-muted);
+    }
+
+    .sp-stats__distribution-item strong {
+      font-size: var(--font-up-3);
+      line-height: 1.1;
+    }
+
+    .sp-stats__kv {
+      display: grid;
+      gap: 0;
+    }
+
+    .sp-stats__kv > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .72rem 0;
+      border-bottom: 1px solid var(--sp-stats-border);
+    }
+
+    .sp-stats__kv > div:first-child {
+      padding-top: 0;
+    }
+
+    .sp-stats__kv > div:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .sp-stats__kv span {
+      color: var(--sp-stats-muted);
+    }
+
+    .sp-stats__kv strong {
+      flex: 0 0 auto;
+      font-size: var(--font-up-1);
+    }
+
+    .sp-stats__note {
+      margin-top: .8rem !important;
+      padding: .7rem .8rem;
+      border-radius: 10px;
+      background: var(--sp-stats-alt);
+      color: var(--sp-stats-muted);
+      font-size: var(--font-down-1);
+      line-height: 1.4;
+    }
+
+    .sp-stats__table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .sp-stats__table {
+      width: 100%;
+      min-width: 38rem;
+    }
+
+    .sp-stats__table .d-table__cell {
+      vertical-align: middle;
+    }
+
+    .sp-stats__table thead .d-table__cell {
+      color: var(--sp-stats-muted);
+      font-size: var(--font-down-1);
+      font-weight: 700;
+    }
+
+    .sp-stats__share-pill {
+      display: inline-flex;
+      min-width: 3.2rem;
+      justify-content: center;
+      padding: .2rem .48rem;
+      border-radius: 999px;
+      background: var(--sp-stats-alt);
+      font-size: var(--font-down-1);
+      font-weight: 700;
+    }
+
+    .sp-stats__click-total {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .8rem;
+      padding: .8rem;
+      border-radius: 14px;
+      background: var(--sp-stats-alt);
+    }
+
+    .sp-stats__click-total span {
+      color: var(--sp-stats-muted);
+    }
+
+    .sp-stats__click-total strong {
+      font-size: var(--font-up-3);
+    }
+
+    .sp-stats__empty {
+      display: grid;
+      gap: .35rem;
+      padding: 1rem;
+      border-radius: 14px;
+      background: var(--sp-stats-alt);
+    }
+
+    .sp-stats__guide {
+      display: grid;
+      gap: .8rem;
+    }
+
+    .sp-stats__guide > div {
+      padding-bottom: .8rem;
+      border-bottom: 1px solid var(--sp-stats-border);
+    }
+
+    .sp-stats__guide > div:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .sp-stats__guide strong {
+      display: block;
+      margin-bottom: .2rem;
+    }
+
+    @media (max-width: 980px) {
+      .sp-stats__metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sp-stats__distribution {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .sp-stats__header {
+        flex-direction: column;
+      }
+
+      .sp-stats__header-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .sp-stats__panel-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sp-stats__panel.is-wide {
+        grid-column: auto;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .sp-stats__header,
+      .sp-stats__metric,
+      .sp-stats__panel {
+        padding: .9rem;
+        border-radius: 14px;
+      }
+
+      .sp-stats__metrics,
+      .sp-stats__distribution {
+        grid-template-columns: 1fr;
+      }
+
+      .sp-stats__header-actions .btn {
+        width: 100%;
+      }
+
+      .sp-stats__metric {
+        min-height: 0;
+      }
+
+      .sp-stats__kv > div,
+      .sp-stats__click-total {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: .25rem;
+      }
+    }
+  </style>
+
+  <section class="admin-detail sp-stats">
+    <section class="sp-stats__header">
+      <div class="sp-stats__header-copy">
+        <h1>{{i18n "discourse_social_profile.admin.statistics.title"}}</h1>
+        <p>{{i18n "discourse_social_profile.admin.statistics.description"}}</p>
+      </div>
+
+      <div class="sp-stats__header-actions">
+        <a class="btn btn-primary" href={{statisticsRefreshUrl}}>
+          {{i18n "discourse_social_profile.admin.statistics.refresh"}}
+        </a>
+        <a class="btn btn-default" href={{settingsUrl}}>
+          {{i18n "discourse_social_profile.admin.common.open_settings"}}
+        </a>
+        <a class="btn btn-default" href={{overviewUrl}}>
+          {{i18n "discourse_social_profile.admin.common.back_to_overview"}}
+        </a>
+      </div>
+    </section>
+
+    <div class="sp-stats__section-heading">
+      <h2>{{i18n "discourse_social_profile.admin.statistics.overview_title"}}</h2>
+      <p>{{i18n "discourse_social_profile.admin.statistics.overview_blurb"}}</p>
     </div>
 
-    <div class="social-profile-stats-page">
-      <section class="social-profile-stats-page__hero-card">
-        <div>
-          <div class="social-profile-stats-page__eyebrow">
-            {{i18n "discourse_social_profile.admin.statistics.snapshot"}}
-          </div>
-          <h3>{{i18n "discourse_social_profile.admin.statistics.overview_title"}}</h3>
-          <p>{{i18n "discourse_social_profile.admin.statistics.overview_blurb"}}</p>
-        </div>
-        <div class="social-profile-stats-page__generated-at">
-          {{i18n "discourse_social_profile.admin.statistics.generated_at"}}
-          <strong>{{@model.generated_at}}</strong>
-        </div>
-      </section>
+    <section class="sp-stats__metrics">
+      <article class="sp-stats__metric">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.total_users"}}</span>
+        <strong>{{@model.total_users}}</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.total_users_help"}}</p>
+      </article>
 
-      <section class="social-profile-stats-page__metric-grid">
-        <article class="social-profile-stats-page__metric-card">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.total_users"}}</span>
-          <strong>{{@model.total_users}}</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.total_users_help"}}</p>
-        </article>
-        <article class="social-profile-stats-page__metric-card">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.users_with_profiles"}}</span>
-          <strong>{{@model.users_with_profiles}}</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.users_with_profiles_help"}}</p>
-        </article>
-        <article class="social-profile-stats-page__metric-card is-highlight">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.adoption"}}</span>
-          <strong>{{@model.adoption_percentage}}%</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.adoption_help"}}</p>
-        </article>
-        <article class="social-profile-stats-page__metric-card">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.total_links"}}</span>
-          <strong>{{@model.total_links}}</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.total_links_help"}}</p>
-        </article>
-        <article class="social-profile-stats-page__metric-card">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.avg_linked_user"}}</span>
-          <strong>{{@model.average_links_per_linked_user}}</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.avg_linked_user_help"}}</p>
-        </article>
-        <article class="social-profile-stats-page__metric-card">
-          <span class="social-profile-stats-page__metric-label">{{i18n "discourse_social_profile.admin.statistics.avg_all_users"}}</span>
-          <strong>{{@model.average_links_per_all_users}}</strong>
-          <p>{{i18n "discourse_social_profile.admin.statistics.avg_all_users_help"}}</p>
-        </article>
-      </section>
+      <article class="sp-stats__metric">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.users_with_profiles"}}</span>
+        <strong>{{@model.users_with_profiles}}</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.users_with_profiles_help"}}</p>
+      </article>
 
-      <section class="social-profile-stats-page__panel-grid">
-        <article class="social-profile-stats-page__panel-card">
-          <div class="social-profile-stats-page__panel-header">
-            <div>
-              <div class="social-profile-stats-page__eyebrow">{{i18n "discourse_social_profile.admin.statistics.distribution"}}</div>
-              <h3>{{i18n "discourse_social_profile.admin.statistics.link_distribution_title"}}</h3>
-            </div>
-          </div>
+      <article class="sp-stats__metric is-primary">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.adoption"}}</span>
+        <strong>{{@model.adoption_percentage}}%</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.adoption_help"}}</p>
+      </article>
 
-          <div class="social-profile-stats-page__distribution-grid">
-            <div class="social-profile-stats-page__distribution-item">
-              <span>1</span>
-              <strong>{{@model.distribution.one}}</strong>
-              <small>{{i18n "discourse_social_profile.admin.statistics.links_suffix"}}</small>
-            </div>
-            <div class="social-profile-stats-page__distribution-item">
-              <span>2</span>
-              <strong>{{@model.distribution.two}}</strong>
-              <small>{{i18n "discourse_social_profile.admin.statistics.links_suffix"}}</small>
-            </div>
-            <div class="social-profile-stats-page__distribution-item">
-              <span>3</span>
-              <strong>{{@model.distribution.three}}</strong>
-              <small>{{i18n "discourse_social_profile.admin.statistics.links_suffix"}}</small>
-            </div>
-            <div class="social-profile-stats-page__distribution-item">
-              <span>4</span>
-              <strong>{{@model.distribution.four}}</strong>
-              <small>{{i18n "discourse_social_profile.admin.statistics.links_suffix"}}</small>
-            </div>
-            <div class="social-profile-stats-page__distribution-item">
-              <span>5+</span>
-              <strong>{{@model.distribution.five_plus}}</strong>
-              <small>{{i18n "discourse_social_profile.admin.statistics.links_suffix"}}</small>
-            </div>
-          </div>
-        </article>
+      <article class="sp-stats__metric">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.total_links"}}</span>
+        <strong>{{@model.total_links}}</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.total_links_help"}}</p>
+      </article>
 
-        <article class="social-profile-stats-page__panel-card">
-          <div class="social-profile-stats-page__panel-header">
-            <div>
-              <div class="social-profile-stats-page__eyebrow">{{i18n "discourse_social_profile.admin.statistics.activity"}}</div>
-              <h3>{{i18n "discourse_social_profile.admin.statistics.recent_changes_title"}}</h3>
-            </div>
-          </div>
+      <article class="sp-stats__metric">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.avg_linked_user"}}</span>
+        <strong>{{@model.average_links_per_linked_user}}</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.avg_linked_user_help"}}</p>
+      </article>
 
-          <div class="social-profile-stats-page__key-value-list">
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_7d"}}</span><strong>{{@model.new_links_7d}}</strong></div>
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_30d"}}</span><strong>{{@model.new_links_30d}}</strong></div>
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_7d"}}</span><strong>{{@model.changed_links_7d}}</strong></div>
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_30d"}}</span><strong>{{@model.changed_links_30d}}</strong></div>
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.invalid_values"}}</span><strong>{{@model.invalid_values_detected}}</strong></div>
-            <div><span>{{i18n "discourse_social_profile.admin.statistics.audited_values"}}</span><strong>{{@model.invalid_values_audited}}</strong></div>
-          </div>
+      <article class="sp-stats__metric">
+        <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.avg_all_users"}}</span>
+        <strong>{{@model.average_links_per_all_users}}</strong>
+        <p>{{i18n "discourse_social_profile.admin.statistics.avg_all_users_help"}}</p>
+      </article>
+    </section>
 
-          {{#if @model.invalid_values_scan_truncated}}
-            <p class="social-profile-stats-page__note">
-              {{i18n "discourse_social_profile.admin.statistics.audit_limit_note" limit=@model.invalid_values_audit_limit}}
-            </p>
-          {{/if}}
-        </article>
-      </section>
-
-      <section class="social-profile-stats-page__panel-card social-profile-stats-page__panel-card--full">
-        <div class="social-profile-stats-page__panel-header">
+    <section class="sp-stats__panel-grid">
+      <article class="sp-stats__panel">
+        <div class="sp-stats__panel-header">
           <div>
-            <div class="social-profile-stats-page__eyebrow">{{i18n "discourse_social_profile.admin.statistics.platform_usage"}}</div>
-            <h3>{{i18n "discourse_social_profile.admin.statistics.platforms_title"}}</h3>
-            <p>{{i18n "discourse_social_profile.admin.statistics.platforms_help"}}</p>
+            <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.distribution"}}</div>
+            <h2>{{i18n "discourse_social_profile.admin.statistics.link_distribution_title"}}</h2>
           </div>
         </div>
 
-        <div class="social-profile-stats-page__table-wrap">
-          <table class="d-table social-profile-stats-page__table">
-            <thead>
+        <div class="sp-stats__distribution">
+          <div class="sp-stats__distribution-item"><span>1 link</span><strong>{{@model.distribution.one}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+          <div class="sp-stats__distribution-item"><span>2 links</span><strong>{{@model.distribution.two}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+          <div class="sp-stats__distribution-item"><span>3 links</span><strong>{{@model.distribution.three}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+          <div class="sp-stats__distribution-item"><span>4 links</span><strong>{{@model.distribution.four}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+          <div class="sp-stats__distribution-item"><span>5+ links</span><strong>{{@model.distribution.five_plus}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+        </div>
+      </article>
+
+      <article class="sp-stats__panel">
+        <div class="sp-stats__panel-header">
+          <div>
+            <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.activity"}}</div>
+            <h2>{{i18n "discourse_social_profile.admin.statistics.recent_changes_title"}}</h2>
+          </div>
+        </div>
+
+        <div class="sp-stats__kv">
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_7d"}}</span><strong>{{@model.new_links_7d}}</strong></div>
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_30d"}}</span><strong>{{@model.new_links_30d}}</strong></div>
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_7d"}}</span><strong>{{@model.changed_links_7d}}</strong></div>
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_30d"}}</span><strong>{{@model.changed_links_30d}}</strong></div>
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.invalid_values"}}</span><strong>{{@model.invalid_values_detected}}</strong></div>
+          <div><span>{{i18n "discourse_social_profile.admin.statistics.audited_values"}}</span><strong>{{@model.invalid_values_audited}}</strong></div>
+        </div>
+
+        {{#if @model.invalid_values_scan_truncated}}
+          <p class="sp-stats__note">
+            {{i18n "discourse_social_profile.admin.statistics.audit_limit_note" limit=@model.invalid_values_audit_limit}}
+          </p>
+        {{/if}}
+      </article>
+    </section>
+
+    <section class="sp-stats__panel is-wide">
+      <div class="sp-stats__panel-header">
+        <div>
+          <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.platform_usage"}}</div>
+          <h2>{{i18n "discourse_social_profile.admin.statistics.platforms_title"}}</h2>
+          <p>{{i18n "discourse_social_profile.admin.statistics.platforms_help"}}</p>
+        </div>
+      </div>
+
+      <div class="sp-stats__table-wrap">
+        <table class="d-table sp-stats__table">
+          <thead>
+            <tr class="d-table__row">
+              <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
+              <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.users_column"}}</th>
+              <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each @model.platforms as |platform|}}
               <tr class="d-table__row">
-                <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
-                <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.users_column"}}</th>
-                <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
+                <td class="d-table__cell"><strong>{{platform.label}}</strong></td>
+                <td class="d-table__cell">{{platform.users}}</td>
+                <td class="d-table__cell"><span class="sp-stats__share-pill">{{platform.percentage_of_linked_users}}%</span></td>
               </tr>
-            </thead>
-            <tbody>
-              {{#each @model.platforms as |platform|}}
-                <tr class="d-table__row">
-                  <td class="d-table__cell">{{platform.label}}</td>
-                  <td class="d-table__cell">{{platform.users}}</td>
-                  <td class="d-table__cell">{{platform.percentage_of_linked_users}}%</td>
-                </tr>
-              {{/each}}
-            </tbody>
-          </table>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sp-stats__panel-grid">
+      <article class="sp-stats__panel">
+        <div class="sp-stats__panel-header">
+          <div>
+            <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.engagement"}}</div>
+            <h2>{{i18n "discourse_social_profile.admin.statistics.clicks_title"}}</h2>
+          </div>
         </div>
-      </section>
 
-      <section class="social-profile-stats-page__panel-grid">
-        <article class="social-profile-stats-page__panel-card">
-          <div class="social-profile-stats-page__panel-header">
-            <div>
-              <div class="social-profile-stats-page__eyebrow">{{i18n "discourse_social_profile.admin.statistics.engagement"}}</div>
-              <h3>{{i18n "discourse_social_profile.admin.statistics.clicks_title"}}</h3>
-            </div>
+        {{#if @model.click_tracking_enabled}}
+          <div class="sp-stats__click-total">
+            <span>{{i18n "discourse_social_profile.admin.statistics.clicks_last_30d"}}</span>
+            <strong>{{@model.clicks_30d_total}}</strong>
           </div>
 
-          {{#if @model.click_tracking_enabled}}
-            <div class="social-profile-stats-page__click-total">
-              <span>{{i18n "discourse_social_profile.admin.statistics.clicks_last_30d"}}</span>
-              <strong>{{@model.clicks_30d_total}}</strong>
-            </div>
-            <div class="social-profile-stats-page__table-wrap">
-              <table class="d-table social-profile-stats-page__table">
-                <thead>
+          <div class="sp-stats__table-wrap">
+            <table class="d-table sp-stats__table">
+              <thead>
+                <tr class="d-table__row">
+                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
+                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.clicks_column"}}</th>
+                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{#each @model.clicks as |row|}}
                   <tr class="d-table__row">
-                    <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
-                    <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.clicks_column"}}</th>
-                    <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
+                    <td class="d-table__cell"><strong>{{row.label}}</strong></td>
+                    <td class="d-table__cell">{{row.clicks_30d}}</td>
+                    <td class="d-table__cell"><span class="sp-stats__share-pill">{{row.click_share_percentage}}%</span></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {{#each @model.clicks as |row|}}
-                    <tr class="d-table__row">
-                      <td class="d-table__cell">{{row.label}}</td>
-                      <td class="d-table__cell">{{row.clicks_30d}}</td>
-                      <td class="d-table__cell">{{row.click_share_percentage}}%</td>
-                    </tr>
-                  {{/each}}
-                </tbody>
-              </table>
-            </div>
-          {{else}}
-            <div class="social-profile-stats-page__empty-state">
-              <strong>{{i18n "discourse_social_profile.admin.statistics.click_tracking_disabled_title"}}</strong>
-              <p>{{i18n "discourse_social_profile.admin.statistics.click_tracking_disabled_body"}}</p>
-            </div>
-          {{/if}}
-        </article>
-
-        <article class="social-profile-stats-page__panel-card">
-          <div class="social-profile-stats-page__panel-header">
-            <div>
-              <div class="social-profile-stats-page__eyebrow">{{i18n "discourse_social_profile.admin.statistics.interpretation"}}</div>
-              <h3>{{i18n "discourse_social_profile.admin.statistics.reading_guide_title"}}</h3>
-            </div>
+                {{/each}}
+              </tbody>
+            </table>
           </div>
-
-          <div class="social-profile-stats-page__reading-guide">
-            <div>
-              <strong>{{i18n "discourse_social_profile.admin.statistics.reading_adoption_title"}}</strong>
-              <p>{{i18n "discourse_social_profile.admin.statistics.reading_adoption_body"}}</p>
-            </div>
-            <div>
-              <strong>{{i18n "discourse_social_profile.admin.statistics.reading_distribution_title"}}</strong>
-              <p>{{i18n "discourse_social_profile.admin.statistics.reading_distribution_body"}}</p>
-            </div>
-            <div>
-              <strong>{{i18n "discourse_social_profile.admin.statistics.reading_clicks_title"}}</strong>
-              <p>{{i18n "discourse_social_profile.admin.statistics.reading_clicks_body"}}</p>
-            </div>
+        {{else}}
+          <div class="sp-stats__empty">
+            <strong>{{i18n "discourse_social_profile.admin.statistics.click_tracking_disabled_title"}}</strong>
+            <p>{{i18n "discourse_social_profile.admin.statistics.click_tracking_disabled_body"}}</p>
           </div>
-        </article>
-      </section>
-    </div>
+        {{/if}}
+      </article>
+
+      <article class="sp-stats__panel">
+        <div class="sp-stats__panel-header">
+          <div>
+            <div class="sp-stats__eyebrow">{{i18n "discourse_social_profile.admin.statistics.interpretation"}}</div>
+            <h2>{{i18n "discourse_social_profile.admin.statistics.reading_guide_title"}}</h2>
+          </div>
+        </div>
+
+        <div class="sp-stats__guide">
+          <div>
+            <strong>{{i18n "discourse_social_profile.admin.statistics.reading_adoption_title"}}</strong>
+            <p>{{i18n "discourse_social_profile.admin.statistics.reading_adoption_body"}}</p>
+          </div>
+          <div>
+            <strong>{{i18n "discourse_social_profile.admin.statistics.reading_distribution_title"}}</strong>
+            <p>{{i18n "discourse_social_profile.admin.statistics.reading_distribution_body"}}</p>
+          </div>
+          <div>
+            <strong>{{i18n "discourse_social_profile.admin.statistics.reading_clicks_title"}}</strong>
+            <p>{{i18n "discourse_social_profile.admin.statistics.reading_clicks_body"}}</p>
+          </div>
+        </div>
+      </article>
+    </section>
   </section>
 </template>
