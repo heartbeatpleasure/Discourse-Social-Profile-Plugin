@@ -135,9 +135,9 @@ check(checks, "No unsafe frontend HTML injection") do
 end
 
 check(checks, "Relative-URL-root-safe server paths") do
-  presenter = read("lib/discourse_social_profile/profile_presenter.rb")
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
   platform = read("app/models/discourse_social_profile/platform.rb")
-  assert(presenter.include?("Discourse.base_path"), "click route not base_path safe")
+  assert(renderer.include?("getURL(`/social-profile/click/${clickToken}`)"), "background click route not base_path safe")
   assert(platform.include?("GlobalPath.full_cdn_url") && platform.include?("Discourse.base_path"), "upload/bundled path not safe")
 end
 
@@ -339,15 +339,19 @@ check(checks, "Strict identifier parsing at request boundaries") do
   assert(prefs.include?("Integer(value.to_s, 10)") && admin.include?("Integer(value.to_s, 10)"), "strict numeric parse missing")
   clicks = read("app/controllers/discourse_social_profile/clicks_controller.rb")
   assert(clicks.include?("CLICK_TOKEN_PATTERN"), "strict click token parse missing")
-  assert(clicks.include?("redirect_with_client_support"), "click redirect is not Discourse navigation compatible")
+  assert(clicks.include?("def create") && clicks.include?("head :no_content"), "background click endpoint missing")
 end
 
-check(checks, "Opaque click redirect identifiers") do
+check(checks, "Opaque click analytics identifiers with direct navigation") do
   link = read("app/models/discourse_social_profile/link.rb")
   presenter = read("lib/discourse_social_profile/profile_presenter.rb")
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  plugin = read("plugin.rb")
   assert(link.include?("SecureRandom.urlsafe_base64(CLICK_TOKEN_BYTES)"), "random token missing")
   assert(link.include?("CLICK_TOKEN_LENGTH = 32"), "token length drift")
-  assert(presenter.include?("link.click_token"), "presenter not token based")
+  assert(presenter.include?("href: result.href") && presenter.include?("click_token:"), "tracking still replaces the external destination")
+  assert(renderer.include?("trackClick") && renderer.include?("type: \"POST\""), "background click POST missing")
+  assert(plugin.include?('post "/social-profile/click/:token"'), "background click route missing")
   assert(!presenter.include?('/social-profile/click/#{link.id}'), "sequential link id exposed")
 end
 
@@ -364,7 +368,7 @@ check(checks, "X icon and monochrome mask parity") do
   renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
   assert(plugin.include?("fab-x-twitter"), "X icon not registered")
   assert(defaults.include?('key: "x"') && defaults.include?('icon_name: "fab-x-twitter"'), "X default icon not modernized")
-  assert(renderer.include?("opacity:0.62"), "bundled masks are not visually softened to match native icons")
+  assert(renderer.include?("opacity:0.45"), "bundled masks are not visually matched to native icons")
 end
 
 check(checks, "Database constraints and migration count") do

@@ -23,10 +23,11 @@ module("Integration | Component | social-profile-icons", function (hooks) {
     assert.dom(".iconic-user-fields a").hasAttribute("aria-label", "Example Social");
   });
 
-  test("keeps opaque same-site click tracking URLs renderable", async function (assert) {
-    const outletArgs = { user: { social_profiles: [{ key: "tracked", label: "Tracked", href: "/social-profile/click/abcdefghijklmnopqrstuvwxyzABCDEF", icon_name: "globe" }] } };
+  test("keeps tracked links external and marks them for background analytics", async function (assert) {
+    const outletArgs = { user: { social_profiles: [{ key: "tracked", label: "Tracked", href: "https://example.com/tracked", click_token: "abcdefghijklmnopqrstuvwxyzABCDEF", icon_name: "globe" }] } };
     await render(<template><SocialProfileIcons @outletArgs={{outletArgs}} /></template>);
-    assert.dom('.social-profile-icons a[data-social-platform="tracked"]').hasAttribute("href", "/social-profile/click/abcdefghijklmnopqrstuvwxyzABCDEF");
+    assert.dom('.social-profile-icons a[data-social-platform="tracked"]').hasAttribute("href", "https://example.com/tracked");
+    assert.dom('.social-profile-icons a[data-social-platform="tracked"]').hasAttribute("data-click-tracking", "true");
   });
 
   test("keeps full-color image priority above mask and FontAwesome", async function (assert) {
@@ -44,7 +45,7 @@ module("Integration | Component | social-profile-icons", function (hooks) {
     const style = document.querySelector(".iconic-user-fields a").getAttribute("style") || "";
     assert.ok(style.includes("--slc-icon-mask:url('/plugins/discourse-social-profile/images/social-profile/onlyfans.svg')"));
     const maskStyle = document.querySelector(".slc-custom-icon").getAttribute("style") || "";
-    assert.ok(maskStyle.includes("opacity:0.62"));
+    assert.ok(maskStyle.includes("opacity:0.45"));
   });
 
   test("uses dark platform, badge and global color values with light fallbacks", async function (assert) {

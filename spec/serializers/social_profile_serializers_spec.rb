@@ -26,10 +26,11 @@ RSpec.describe "Social profile serializers" do
     expect(json[:social_profiles].first[:key]).to eq("serializer")
   end
 
-  it "uses an opaque click token and not an internal link ID when tracking is enabled" do
+  it "keeps the external destination and exposes only an opaque analytics token when tracking is enabled" do
     SiteSetting.discourse_social_profile_track_clicks = true
     social = UserSerializer.new(owner, scope: Guardian.new(viewer), root: false).as_json[:social_profiles].first
-    expect(social[:href]).to eq("/social-profile/click/#{link.click_token}")
+    expect(social[:href]).to eq("https://example.com/u/owner")
+    expect(social[:click_token]).to eq(link.click_token)
     expect(social).not_to have_key(:id)
   end
 

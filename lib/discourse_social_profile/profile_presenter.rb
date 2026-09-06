@@ -23,14 +23,13 @@ module ::DiscourseSocialProfile
       result = LinkBuilder.call(platform, link.value)
       return nil unless result.ok?
 
-      href =
-        tracking && result.href.start_with?("https://") ?
-          "#{Discourse.base_path}/social-profile/click/#{link.click_token}" : result.href
+      trackable = tracking && result.href.start_with?("https://")
 
       {
         key: platform.key,
         label: platform.label,
-        href: href,
+        href: result.href,
+        click_token: trackable ? link.click_token : nil,
         icon_name: platform.icon_name.presence || "globe",
         icon_image_url: safe_icon_value(platform, :image_url),
         icon_mask_url: safe_icon_value(platform, :mask_url),

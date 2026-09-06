@@ -1,6 +1,11 @@
 import Component from "@glimmer/component";
+import { fn } from "@ember/helper";
+import { action } from "@ember/object";
+import { on } from "@ember/modifier";
 import { service } from "@ember/service";
 import { htmlSafe } from "@ember/template";
+import { ajax } from "discourse/lib/ajax";
+import getURL from "discourse/lib/get-url";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 
 const COLOR_PATTERNS = [
@@ -91,6 +96,11 @@ function safeHref(value) {
   }
 }
 
+function safeClickToken(value) {
+  const candidate = stringValue(value);
+  return /^[A-Za-z0-9_-]{32}$/.test(candidate) ? candidate : "";
+}
+
 export default class SocialProfileIcons extends Component {
   @service interfaceColor;
   @service siteSettings;
@@ -126,6 +136,7 @@ export default class SocialProfileIcons extends Component {
       const iconName = stringValue(link.icon_name) || "globe";
       const imageUrl = safeAssetUrl(link.icon_image_url);
       const maskUrl = safeMaskUrl(link.icon_mask_url);
+      const clickToken = safeClickToken(link.click_token);
       const badgeBackground = this.badgeBackgroundFor(link);
 
       const linkStyle = [
@@ -190,7 +201,7 @@ export default class SocialProfileIcons extends Component {
               "background-color:var(--slc-icon-color,var(--slc-global-icon-color,currentColor))",
               ...(this.siteSettings.discourse_social_profile_use_platform_colors
                 ? []
-                : ["opacity:0.62"]),
+                : ["opacity:0.45"]),
               `-webkit-mask:url('${maskUrl}') no-repeat center / contain`,
               `mask:url('${maskUrl}') no-repeat center / contain`,
             ].join(";")
@@ -201,6 +212,7 @@ export default class SocialProfileIcons extends Component {
         key,
         href,
         label,
+        clickToken,
         iconName,
         imageUrl,
         maskUrl,
@@ -214,6 +226,19 @@ export default class SocialProfileIcons extends Component {
     } catch {
       return null;
     }
+  }
+
+  @action
+  trackClick(clickToken) {
+    if (!clickToken) {
+      return;
+    }
+
+    // Analytics must never become part of navigation. The anchor already points
+    // directly at the external profile; this same-origin POST is best-effort only.
+    ajax(getURL(`/social-profile/click/${clickToken}`), { type: "POST" }).catch(
+      () => {}
+    );
   }
 
   get isDarkScheme() {
@@ -289,7 +314,9 @@ export default class SocialProfileIcons extends Component {
             aria-label={{link.label}}
             referrerpolicy="no-referrer"
             data-social-platform={{link.key}}
+            data-click-tracking={{if link.clickToken "true" "false"}}
             style={{link.linkStyle}}
+            {{on "click" (fn this.trackClick link.clickToken)}}
           >
             <span class={{link.frameClass}} style={{link.frameStyle}}>
               {{#if link.imageUrl}}

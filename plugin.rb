@@ -2,7 +2,7 @@
 
 # name: Discourse-Social-Profile-Plugin
 # about: Native social profile links for Discourse with plugin-owned data, secure validation, admin management and statistics.
-# version: 0.1.13
+# version: 0.1.14
 # authors: Chris
 # url: https://github.com/heartbeatpleasure/Discourse-Social-Profile-Plugin
 # required_version: 2026.7.2
@@ -20,7 +20,7 @@ register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.13"
+  VERSION = "0.1.14"
   BUNDLED_MASKS = %w[
     onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask
     kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale
@@ -149,6 +149,7 @@ after_initialize do
     get "/social-profile/preferences.json" => "discourse_social_profile/preferences#index"
     put "/social-profile/preferences.json" => "discourse_social_profile/preferences#update"
     get "/social-profile/click/:token" => "discourse_social_profile/clicks#show", as: :discourse_social_profile_click
+    post "/social-profile/click/:token" => "discourse_social_profile/clicks#create"
 
     get "/admin/plugins/discourse-social-profile/overview.json" =>
           "discourse_social_profile/admin/overview#index",

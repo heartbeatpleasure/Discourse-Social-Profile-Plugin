@@ -29,13 +29,22 @@ RSpec.describe DiscourseSocialProfile::ClicksController do
     expect(stat.click_count).to eq(1)
   end
 
-  it "supports Discourse XHR navigation without losing the external destination" do
+  it "records a background click without returning or redirecting to the destination" do
     SiteSetting.discourse_social_profile_track_clicks = true
     sign_in(viewer)
-    get "/social-profile/click/#{link.click_token}", xhr: true
-    expect(response.status).to eq(200)
-    expect(response.headers["Discourse-Xhr-Redirect"]).to eq("true")
-    expect(response.body).to eq("https://example.com/u/owner")
+    post "/social-profile/click/#{link.click_token}", xhr: true
+    expect(response.status).to eq(204)
+    expect(response.body).to be_blank
+    stat = DiscourseSocialProfile::ClickStat.find_by(platform_id: platform.id, stat_date: Date.current)
+    expect(stat.click_count).to eq(1)
+  end
+
+  it "does not expose the destination from the background analytics endpoint" do
+    SiteSetting.discourse_social_profile_track_clicks = true
+    sign_in(viewer)
+    post "/social-profile/click/#{link.click_token}", xhr: true
+    expect(response.body).not_to include("example.com")
+    expect(response.headers["Location"]).to be_blank
   end
 
   it "rejects forged, malformed and sequential identifiers" do
@@ -67,6 +76,17 @@ RSpec.describe DiscourseSocialProfile::ClicksController do
     get "/social-profile/click/#{link.click_token}"
     expect(response.status).to eq(404)
     expect(DiscourseSocialProfile::ClickStat.where(platform_id: platform.id)).to be_empty
+  end
+
+  it "keeps the background endpoint destination-blind even if a previously issued token is replayed" do
+    SiteSetting.discourse_social_profile_track_clicks = true
+    SiteSetting.allow_users_to_hide_profile = true
+    owner.user_option.update!(hide_profile: true)
+    sign_in(viewer)
+    post "/social-profile/click/#{link.click_token}", xhr: true
+    expect(response.status).to eq(204)
+    expect(response.body).to be_blank
+    expect(response.headers["Location"]).to be_blank
   end
 
   it "does not redirect when current platform rules invalidate the stored value" do
