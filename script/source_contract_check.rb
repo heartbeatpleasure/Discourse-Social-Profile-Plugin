@@ -137,7 +137,7 @@ end
 check(checks, "Relative-URL-root-safe server paths") do
   renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
   platform = read("app/models/discourse_social_profile/platform.rb")
-  assert(renderer.include?("getURL(`/social-profile/click/${clickToken}`)"), "background click route not base_path safe")
+  assert(renderer.include?('getURL("/social-profile/click.json")'), "background click route not base_path safe")
   assert(platform.include?("GlobalPath.full_cdn_url") && platform.include?("Discourse.base_path"), "upload/bundled path not safe")
 end
 
@@ -217,9 +217,11 @@ check(checks, "Serializer registration order") do
   assert(card && user && card < user, "user_card must be registered before user")
 end
 
-check(checks, "Admin candidate validation preserves record identity") do
+check(checks, "Admin candidate validation preserves record identity and locks validation changes") do
   c = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
-  assert(c.scan("candidate = Platform.find(@platform.id)").length >= 2, "persisted candidate missing")
+  assert(c.include?("candidate = Platform.find(locked.id)"), "locked persisted candidate missing")
+  assert(c.include?("Platform.lock.find(@platform.id)"), "platform row lock missing")
+  assert(c.include?("EXISTING_LINK_AUDIT_BUDGET"), "bounded existing-link audit missing")
   assert(!c.include?("@platform.dup"), "dup uniqueness bug present")
 end
 
@@ -268,11 +270,37 @@ end
 
 check(checks, "Custom Ember pages have direct-reload Rails shell routes") do
   plugin = read("plugin.rb")
-  assert(plugin.include?('get "/u/:username/preferences/social-profiles" => "users#show"'), "preferences direct-reload shell missing")
+  assert(plugin.include?('get "/u/:username/preferences/social-profiles" => "users#preferences"'), "preferences direct-reload shell missing")
   assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms" => "admin/plugins#index"'), "platforms direct-reload shell missing")
   assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms/new" => "admin/plugins#index"'), "new-platform direct-reload shell missing")
   assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/platforms/:id/edit" => "admin/plugins#index"'), "edit-platform direct-reload shell missing")
   assert(plugin.include?('/admin/plugins/Discourse-Social-Profile-Plugin/statistics" => "admin/plugins#index"'), "statistics direct-reload shell missing")
+  assert(plugin.include?('get "/u/:username/preferences/social-profiles" => "users#preferences"'), "preferences direct-reload route must use Discourse users#preferences")
+end
+
+check(checks, "Security hardening covers public destinations, click semantics and SVG uploads") do
+  plugin = read("plugin.rb")
+  builder = read("lib/discourse_social_profile/link_builder.rb")
+  validator = read("lib/discourse_social_profile/platform_validator.rb")
+  platform = read("app/models/discourse_social_profile/platform.rb")
+  clicks = read("app/controllers/discourse_social_profile/clicks_controller.rb")
+  link = read("app/models/discourse_social_profile/link.rb")
+  preferences = read("app/controllers/discourse_social_profile/preferences_controller.rb")
+
+  assert(plugin.include?('require_relative "lib/discourse_social_profile/url_safety"'), "URL safety module not loaded")
+  assert(builder.include?("UrlSafety.public_host?"), "profile destinations do not reject local/private hosts")
+  assert(validator.include?("UrlSafety.public_host?"), "platform URLs do not reject local/private hosts")
+  assert(platform.include?("safe_svg_upload?") && platform.include?("strict.nonet"), "SVG defense-in-depth missing")
+  assert(platform.include?("SVG_RAW_FORBIDDEN") && platform.include?("SVG_NAMESPACE"), "SVG parser preflight/namespace hardening missing")
+  assert(platform.include?("MAX_SVG_NODES") && platform.include?("MAX_ICON_DIMENSION"), "icon resource bounds missing")
+  assert(clicks.include?("ACTOR_LINK_RATE_LIMIT"), "per-actor/per-link analytics limiter missing")
+  assert(plugin.include?('post "/social-profile/click.json" => "discourse_social_profile/clicks#create"'), "fixed click analytics POST route missing")
+  assert(!plugin.include?('get "/social-profile/click/:token"'), "tokenized GET redirect route must not exist")
+  assert(!plugin.include?('post "/social-profile/click/:token"'), "analytics tokens must not be placed in request paths")
+  assert(!clicks.include?("def show"), "click controller must not expose a redirect action")
+  assert(clicks.include?("guardian.can_see_profile?(link.user)"), "click visibility gate missing")
+  assert(link.include?("rotate_click_token_if_value_changed"), "click-token rotation on destination change missing")
+  assert(preferences.include?("Platform.where(id: platform_ids).order(:id).lock"), "preference/platform race lock missing")
 end
 
 check(checks, "URL and identifier canonicalization follows parity contract") do
@@ -330,13 +358,14 @@ check(checks, "Malformed request payloads fail closed") do
   prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
   admin = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
   assert(prefs.include?("links must be an array") && prefs.include?("each links entry must be an object"), "preferences shape checks missing")
+  assert(prefs.include?("9_223_372_036_854_775_807") && admin.include?("9_223_372_036_854_775_807"), "bounded database identifier parsing missing")
   assert(admin.include?("platform must be an object"), "admin platform shape check missing")
 end
 
 check(checks, "Strict identifier parsing at request boundaries") do
   prefs = read("app/controllers/discourse_social_profile/preferences_controller.rb")
   admin = read("app/controllers/discourse_social_profile/admin/platforms_controller.rb")
-  assert(prefs.include?("Integer(value.to_s, 10)") && admin.include?("Integer(value.to_s, 10)"), "strict numeric parse missing")
+  assert(prefs.include?("raw.match?(/\\A[1-9]\\d{0,18}\\z/)") && admin.include?("raw.match?(/\\A[1-9]\\d{0,18}\\z/)"), "strict bounded numeric parse missing")
   clicks = read("app/controllers/discourse_social_profile/clicks_controller.rb")
   assert(clicks.include?("CLICK_TOKEN_PATTERN"), "strict click token parse missing")
   assert(clicks.include?("def create") && clicks.include?("head :no_content"), "background click endpoint missing")
@@ -351,7 +380,9 @@ check(checks, "Opaque click analytics identifiers with direct navigation") do
   assert(link.include?("CLICK_TOKEN_LENGTH = 32"), "token length drift")
   assert(presenter.include?("href: result.href") && presenter.include?("click_token:"), "tracking still replaces the external destination")
   assert(renderer.include?("trackClick") && renderer.include?("type: \"POST\""), "background click POST missing")
-  assert(plugin.include?('post "/social-profile/click/:token"'), "background click route missing")
+  assert(plugin.include?('post "/social-profile/click.json"'), "generic background click route missing")
+  assert(!plugin.include?('post "/social-profile/click/:token"'), "click token must not appear in request-path routes")
+  assert(renderer.include?("data: { token: clickToken }"), "click token should be carried in POST body, not the current request path")
   assert(!presenter.include?('/social-profile/click/#{link.id}'), "sequential link id exposed")
 end
 

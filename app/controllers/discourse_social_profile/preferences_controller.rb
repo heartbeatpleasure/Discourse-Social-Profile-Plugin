@@ -41,43 +41,53 @@ module ::DiscourseSocialProfile
         )
       end
 
-      platforms = Platform.enabled.where(id: platform_ids).index_by(&:id)
       errors = {}
       normalized = {}
 
-      entries.each do |entry|
-        platform_id = strict_positive_id(entry[:platform_id])
-        platform = platforms[platform_id]
-        if platform.nil?
-          errors[platform_id] = "invalid_platform"
-          next
-        end
+      # Serialize concurrent saves for one account, then lock the referenced
+      # platform rows while validating and writing. Admin validation changes use
+      # the same row locks, preventing a value from being accepted against stale
+      # platform rules during a concurrent configuration update.
+      DistributedMutex.synchronize("social-profile-preferences-#{current_user.id}") do
+        Link.transaction do
+          platforms =
+            Platform.where(id: platform_ids).order(:id).lock.to_a.index_by(&:id)
 
-        value = entry[:value].to_s.strip
-        next normalized[platform_id] = nil if value.blank?
+          entries.each do |entry|
+            platform_id = strict_positive_id(entry[:platform_id])
+            platform = platforms[platform_id]
+            if platform.nil? || !platform.enabled?
+              errors[platform_id] = "invalid_platform"
+              next
+            end
 
-        result = LinkBuilder.call(platform, value)
-        if result.ok?
-          normalized[platform_id] = result.canonical_value
-        else
-          errors[platform_id] = result.error_code
+            value = entry[:value].to_s.strip
+            next normalized[platform_id] = nil if value.blank?
+
+            result = LinkBuilder.call(platform, value)
+            if result.ok?
+              normalized[platform_id] = result.canonical_value
+            else
+              errors[platform_id] = result.error_code
+            end
+          end
+
+          if errors.empty?
+            normalized.each do |platform_id, value|
+              if value.nil?
+                Link.where(user_id: current_user.id, platform_id: platform_id).delete_all
+              else
+                link = Link.find_or_initialize_by(user_id: current_user.id, platform_id: platform_id)
+                link.value = value
+                link.save!
+              end
+            end
+          end
         end
       end
 
       if errors.present?
         return render_json_dump({ success: false, errors: errors }, status: :unprocessable_entity)
-      end
-
-      Link.transaction do
-        normalized.each do |platform_id, value|
-          if value.nil?
-            Link.where(user_id: current_user.id, platform_id: platform_id).delete_all
-          else
-            link = Link.find_or_initialize_by(user_id: current_user.id, platform_id: platform_id)
-            link.value = value
-            link.save!
-          end
-        end
       end
 
       Statistics.clear!
@@ -127,10 +137,11 @@ module ::DiscourseSocialProfile
     end
 
     def strict_positive_id(value)
-      id = Integer(value.to_s, 10)
-      id.positive? ? id : nil
-    rescue ArgumentError, TypeError
-      nil
+      raw = value.to_s
+      return nil unless raw.match?(/\A[1-9]\d{0,18}\z/)
+
+      id = raw.to_i
+      id <= 9_223_372_036_854_775_807 ? id : nil
     end
 
     def platform_payloads

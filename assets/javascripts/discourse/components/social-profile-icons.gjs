@@ -236,9 +236,10 @@ export default class SocialProfileIcons extends Component {
 
     // Analytics must never become part of navigation. The anchor already points
     // directly at the external profile; this same-origin POST is best-effort only.
-    ajax(getURL(`/social-profile/click/${clickToken}`), { type: "POST" }).catch(
-      () => {}
-    );
+    ajax(getURL("/social-profile/click.json"), {
+      type: "POST",
+      data: { token: clickToken },
+    }).catch(() => {});
   }
 
   get isDarkScheme() {

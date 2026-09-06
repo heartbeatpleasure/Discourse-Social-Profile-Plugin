@@ -2,7 +2,7 @@
 
 # name: Discourse-Social-Profile-Plugin
 # about: Native social profile links for Discourse with plugin-owned data, secure validation, admin management and statistics.
-# version: 0.1.14
+# version: 0.1.15
 # authors: Chris
 # url: https://github.com/heartbeatpleasure/Discourse-Social-Profile-Plugin
 # required_version: 2026.7.2
@@ -20,7 +20,7 @@ register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.14"
+  VERSION = "0.1.15"
   BUNDLED_MASKS = %w[
     onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask
     kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale
@@ -46,6 +46,7 @@ end
 # `_icon` in the SVG sprite and expires that sprite when such settings change.
 after_initialize do
   require_relative "lib/discourse_social_profile/default_platforms"
+  require_relative "lib/discourse_social_profile/url_safety"
   require_relative "lib/discourse_social_profile/link_builder"
   require_relative "lib/discourse_social_profile/platform_validator"
   require_relative "lib/discourse_social_profile/profile_presenter"
@@ -143,13 +144,16 @@ after_initialize do
     get "/admin/plugins/Discourse-Social-Profile-Plugin/statistics" => "admin/plugins#index",
         constraints: AdminConstraint.new
 
-    get "/u/:username/preferences/social-profiles" => "users#show",
+    get "/u/:username/preferences/social-profiles" => "users#preferences",
         constraints: { username: RouteFormat.username }
 
     get "/social-profile/preferences.json" => "discourse_social_profile/preferences#index"
     put "/social-profile/preferences.json" => "discourse_social_profile/preferences#update"
-    get "/social-profile/click/:token" => "discourse_social_profile/clicks#show", as: :discourse_social_profile_click
-    post "/social-profile/click/:token" => "discourse_social_profile/clicks#create"
+    # Click analytics deliberately uses one fixed POST endpoint. The opaque token
+    # is carried in the CSRF-protected request body, never in a redirect URL or
+    # normal request path, so the plugin cannot become a trusted-domain open
+    # redirect and web-server access logs do not collect analytics tokens.
+    post "/social-profile/click.json" => "discourse_social_profile/clicks#create"
 
     get "/admin/plugins/discourse-social-profile/overview.json" =>
           "discourse_social_profile/admin/overview#index",

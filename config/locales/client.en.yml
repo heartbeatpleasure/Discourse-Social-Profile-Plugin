@@ -101,6 +101,7 @@ en:
           invalid_values: "Invalid values detected"
           audited_values: "Audited values"
           audit_limit_note: "Invalid-value auditing is capped at the first %{limit} stored links per snapshot."
+          audit_timeout_note: "The invalid-value safety audit reached its time budget. The counts shown above are partial for this snapshot."
           platform_usage: "Platform usage"
           platforms_title: "Platform breakdown"
           platforms_help: "How often each supported platform is used by members with at least one configured social profile."

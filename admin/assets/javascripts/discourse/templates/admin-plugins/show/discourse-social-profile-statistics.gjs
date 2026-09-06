@@ -510,7 +510,11 @@ export default <template>
           <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.audited_values"}}</span><span class="sp-stats__row-value"><strong>{{@model.invalid_values_audited}}</strong></span></div>
         </div>
 
-        {{#if @model.invalid_values_scan_truncated}}
+        {{#if @model.invalid_values_scan_timed_out}}
+          <p class="sp-stats__note">
+            {{i18n "discourse_social_profile.admin.statistics.audit_timeout_note"}}
+          </p>
+        {{else if @model.invalid_values_scan_truncated}}
           <p class="sp-stats__note">
             {{i18n "discourse_social_profile.admin.statistics.audit_limit_note" limit=@model.invalid_values_audit_limit}}
           </p>

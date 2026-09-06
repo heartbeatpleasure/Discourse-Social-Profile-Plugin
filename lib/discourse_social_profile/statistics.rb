@@ -2,18 +2,32 @@
 
 module ::DiscourseSocialProfile
   module Statistics
-    CACHE_KEY = "discourse-social-profile:statistics:v3"
+    CACHE_KEY_PREFIX = "discourse-social-profile:statistics:v4"
     CACHE_TTL = 5.minutes
     INVALID_AUDIT_LIMIT = 5000
+    INVALID_AUDIT_BUDGET = 2.seconds
 
     module_function
 
     def summary
-      Discourse.cache.fetch(CACHE_KEY, expires_in: CACHE_TTL) { calculate }
+      Discourse.cache.fetch(cache_key, expires_in: CACHE_TTL) { calculate }
+    rescue Redis::BaseError => e
+      Rails.logger.warn("[discourse-social-profile] statistics cache unavailable: #{e.class}")
+      calculate
     end
 
     def clear!
-      Discourse.cache.delete(CACHE_KEY)
+      Discourse.cache.delete("#{CACHE_KEY_PREFIX}:clicks-0")
+      Discourse.cache.delete("#{CACHE_KEY_PREFIX}:clicks-1")
+      true
+    rescue Redis::BaseError => e
+      Rails.logger.warn("[discourse-social-profile] statistics cache clear failed: #{e.class}")
+      false
+    end
+
+
+    def cache_key
+      "#{CACHE_KEY_PREFIX}:clicks-#{SiteSetting.discourse_social_profile_track_clicks ? 1 : 0}"
     end
 
     def calculate
@@ -65,6 +79,7 @@ module ::DiscourseSocialProfile
         invalid_values_detected: invalid_audit[:invalid],
         invalid_values_audited: invalid_audit[:audited],
         invalid_values_scan_truncated: invalid_audit[:truncated],
+        invalid_values_scan_timed_out: invalid_audit[:timed_out],
         invalid_values_audit_limit: INVALID_AUDIT_LIMIT,
         new_links_7d: Link.where(user_id: eligible_user_ids).where("created_at >= ?", 7.days.ago).count,
         new_links_30d: Link.where(user_id: eligible_user_ids).where("created_at >= ?", 30.days.ago).count,
@@ -105,11 +120,24 @@ module ::DiscourseSocialProfile
     end
 
     def audit_invalid_links
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + INVALID_AUDIT_BUDGET.to_f
       rows = Link.includes(:platform).order(:id).limit(INVALID_AUDIT_LIMIT + 1).to_a
       truncated = rows.length > INVALID_AUDIT_LIMIT
-      audited_rows = rows.first(INVALID_AUDIT_LIMIT)
-      invalid = audited_rows.count { |link| !LinkBuilder.call(link.platform, link.value).ok? }
-      { invalid: invalid, audited: audited_rows.length, truncated: truncated }
+      invalid = 0
+      audited = 0
+      timed_out = false
+
+      rows.first(INVALID_AUDIT_LIMIT).each do |link|
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+          timed_out = true
+          break
+        end
+
+        invalid += 1 unless LinkBuilder.call(link.platform, link.value).ok?
+        audited += 1
+      end
+
+      { invalid: invalid, audited: audited, truncated: truncated || timed_out, timed_out: timed_out }
     end
 
     def click_statistics

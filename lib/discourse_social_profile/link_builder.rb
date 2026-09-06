@@ -16,8 +16,7 @@ module ::DiscourseSocialProfile
     SCHEME_PREFIX = /\A[a-z][a-z0-9+.-]*:/i
     HANDLE_FORBIDDEN = /[\/:?#]/
     CONTROL = /[\u0000-\u001F\u007F]/
-    ENCODED_CONTROL = /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i
-    MAX_REDIRECT_DECODE_PASSES = 3
+    MAX_REDIRECT_DECODE_PASSES = ::DiscourseSocialProfile::UrlSafety::MAX_DECODE_PASSES
     REDIRECT_QUERY_KEYS = %w[
       u url target redirect redirect_url redirect_uri redirect_to next continue dest destination
       to out away return return_to return_url go
@@ -43,7 +42,7 @@ module ::DiscourseSocialProfile
     def call
       return failure(:blank) if @raw.blank?
       return failure(:too_long) if @raw.length > MAX_URL
-      return failure(:invalid_value) if @raw.match?(CONTROL) || @raw.match?(ENCODED_CONTROL)
+      return failure(:invalid_value) if ::DiscourseSocialProfile::UrlSafety.unsafe_control_encoding?(@raw)
 
       case @platform.input_type
       when "email" then build_email
@@ -111,6 +110,7 @@ module ::DiscourseSocialProfile
       return failure(:invalid_url) if uri.host.blank? || uri.userinfo.present?
       return failure(:invalid_host) unless uri.host.ascii_only?
       return failure(:invalid_host) if uri.port && uri.port != 443
+      return failure(:invalid_host) unless ::DiscourseSocialProfile::UrlSafety.public_host?(uri.host)
 
       host = uri.host.downcase.chomp(".")
       uri = uri.dup
@@ -125,8 +125,11 @@ module ::DiscourseSocialProfile
         return failure(:invalid_host) if allowed.any? && !host_allowed?(host, allowed)
 
         if @platform.path_regex.present?
+          validation_path = normalized_path_for_validation(uri.path)
+          return failure(:invalid_path) unless validation_path
+
           begin
-            matched_path = self.class.compiled_path_regex(@platform.path_regex).match?(uri.path)
+            matched_path = self.class.compiled_path_regex(@platform.path_regex).match?(validation_path)
           rescue RegexpError
             return failure(:invalid_regex)
           end
@@ -163,7 +166,7 @@ module ::DiscourseSocialProfile
       redirect_endpoint = redirect_endpoint_path?(uri.path)
       pairs.any? do |key, value|
         nested_external_url?(value) ||
-          (redirect_endpoint && REDIRECT_QUERY_KEYS.include?(key.to_s.downcase) && value.to_s.present?)
+          (redirect_endpoint && REDIRECT_QUERY_KEYS.include?(repeatedly_percent_decode(key.to_s).downcase) && value.to_s.present?)
       end
     rescue ArgumentError
       true
@@ -171,7 +174,7 @@ module ::DiscourseSocialProfile
 
     def nested_external_url?(value, anywhere: false)
       decoded = repeatedly_percent_decode(value.to_s)
-      pattern = anywhere ? %r{https?://}i : %r{\A[[:space:]]*(?:https?://|//)}i
+      pattern = anywhere ? %r{(?:https?:)?//}i : %r{\A[[:space:]]*(?:https?://|//)}i
       decoded.match?(pattern)
     end
 
@@ -188,8 +191,29 @@ module ::DiscourseSocialProfile
     end
 
     def redirect_endpoint_path?(path)
-      basename = File.basename(path.to_s.sub(%r{/+\z}, "")).downcase
+      decoded = repeatedly_percent_decode(path.to_s)
+      basename = File.basename(decoded.sub(%r{/+\z}, "")).downcase
       REDIRECT_PATH_BASENAMES.include?(basename)
+    end
+
+    # Validate strict platform paths against the decoded path a destination
+    # application is likely to route. This closes parser differentials where an
+    # encoded (or double-encoded) slash/backslash can pass a raw-path allowlist
+    # and then be interpreted as an extra path segment by the remote service.
+    def normalized_path_for_validation(path)
+      decoded = path.to_s
+      MAX_REDIRECT_DECODE_PASSES.times do
+        next_value = URI::DEFAULT_PARSER.unescape(decoded)
+        break if next_value == decoded
+        decoded = next_value
+      end
+
+      return nil unless decoded.valid_encoding?
+      return nil if decoded.match?(CONTROL) || decoded.include?("\\")
+
+      normalize_url_path(decoded)
+    rescue ArgumentError, Encoding::CompatibilityError
+      nil
     end
 
     def normalize_url_path(path)
@@ -229,11 +253,12 @@ module ::DiscourseSocialProfile
 
     def valid_base_uri?(uri)
       uri && uri.host.present? && uri.userinfo.blank? && uri.host.ascii_only? &&
+        ::DiscourseSocialProfile::UrlSafety.public_host?(uri.host) &&
         (!uri.port || uri.port == 443) && uri.query.blank? && uri.fragment.blank?
     end
 
     def safe_https_uri(value)
-      return nil if value.blank? || value.match?(CONTROL) || value.match?(ENCODED_CONTROL) || value.start_with?("//")
+      return nil if value.blank? || ::DiscourseSocialProfile::UrlSafety.unsafe_control_encoding?(value) || value.start_with?("//")
       uri = URI.parse(value)
       return nil unless uri.is_a?(URI::HTTPS)
       uri

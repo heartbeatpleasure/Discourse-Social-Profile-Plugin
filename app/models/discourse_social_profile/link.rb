@@ -28,6 +28,7 @@ module ::DiscourseSocialProfile
 
     before_validation :ensure_click_token, on: :create
     before_validation :normalize_value
+    before_validation :rotate_click_token_if_value_changed, on: :update
 
     private
 
@@ -40,6 +41,10 @@ module ::DiscourseSocialProfile
       return if platform.blank? || value.blank?
       @link_builder_result = ::DiscourseSocialProfile::LinkBuilder.call(platform, value)
       self.value = @link_builder_result.canonical_value if @link_builder_result.ok?
+    end
+
+    def rotate_click_token_if_value_changed
+      self.click_token = SecureRandom.urlsafe_base64(CLICK_TOKEN_BYTES) if will_save_change_to_value?
     end
 
     def value_matches_platform

@@ -99,6 +99,13 @@ RSpec.describe DiscourseSocialProfile::LinkBuilder do
     expect(open.href).to eq("https://example.com/b")
   end
 
+  it "validates strict pathname rules after decoding encoded separators" do
+    p = platform(input_type: "url_locked", allowed_hosts: "example.com", path_regex: "^/users/[^/]+/?$")
+    expect(described_class.call(p, "https://example.com/users/alice%2Fadmin").error_code).to eq("invalid_path")
+    expect(described_class.call(p, "https://example.com/users/alice%252Fadmin").error_code).to eq("invalid_path")
+    expect(described_class.call(p, "https://example.com/users/alice%5Cadmin").error_code).to eq("invalid_path")
+  end
+
   it "enforces pathname regexes and fails closed on invalid regex" do
     p = platform(input_type: "url_locked", allowed_hosts: "example.com", path_regex: "^/users/\\d+/?$")
     expect(described_class.call(p, "https://example.com/users/123")).to be_ok
@@ -135,10 +142,28 @@ RSpec.describe DiscourseSocialProfile::LinkBuilder do
     expect(described_class.call(restricted, "https://evil.example/@name").error_code).to eq("invalid_host")
   end
 
+  it "rejects loopback, private and browser-normalized shorthand IP destinations" do
+    p = platform(input_type: "url_any_https")
+    %w[
+      https://127.0.0.1/profile
+      https://10.0.0.1/profile
+      https://169.254.169.254/latest/meta-data
+      https://127.1/profile
+      https://0177.0.0.1/profile
+      https://0x7f000001/profile
+      https://2130706433/profile
+      https://home.arpa/profile
+      https://router.local/profile
+    ].each do |value|
+      expect(described_class.call(p, value).error_code).to eq("invalid_host"), value
+    end
+  end
+
   it "fails closed for non-ASCII hosts, encoded controls and unsafe base URLs" do
     p = platform(input_type: "url_locked", allowed_hosts: "example.com")
     expect(described_class.call(p, "https://éxample.com/user").error_code).to eq("invalid_url")
     expect(described_class.call(platform(input_type: "url_any_https"), "https://example.com/%0aevil").error_code).to eq("invalid_value")
+    expect(described_class.call(platform(input_type: "url_any_https"), "https://example.com/%252525250aevil").error_code).to eq("invalid_value")
     unsafe = platform(input_type: "handle", base_url: "https://user@example.com/", allowed_hosts: "example.com")
     expect(described_class.call(unsafe, "john").error_code).to eq("invalid_base_url")
   end

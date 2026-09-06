@@ -14,6 +14,7 @@ module ::DiscourseSocialProfile
     ].freeze
     RADIUS_TOKEN = /(?:0|(?:\d+(?:\.\d+)?)(?:px|em|rem|%|vh|vw|vmin|vmax)?|var\(--[a-zA-Z0-9_-]+\))/
     RADIUS_PATTERN = /\A#{RADIUS_TOKEN}(?:\s+#{RADIUS_TOKEN}){0,3}(?:\s*\/\s*#{RADIUS_TOKEN}(?:\s+#{RADIUS_TOKEN}){0,3})?\z/
+    MAX_ALLOWED_HOSTS = 100
 
     module_function
 
@@ -68,16 +69,24 @@ module ::DiscourseSocialProfile
           errors[attribute] = "is disabled by the global external icon URL setting"
           next
         end
-        uri = safe_https_uri(value)
-        invalid = uri.nil? || uri.userinfo.present? || uri.host.blank? || non_default_port?(uri)
-        invalid ||= attribute == :icon_mask_url && value.match?(UNSAFE_CSS_URL_CHARS)
-        if invalid
+        if !safe_external_icon_url?(value, mask: attribute == :icon_mask_url)
           errors[attribute] =
             attribute == :icon_mask_url ?
               "must be a safe absolute HTTPS URL without credentials, CSS-breaking characters, or a non-default port" :
               "must be a safe absolute HTTPS URL without credentials or a non-default port"
         end
       end
+    end
+
+    def safe_external_icon_url?(value, mask: false)
+      candidate = value.to_s.strip
+      return false if candidate.blank?
+
+      uri = safe_https_uri(candidate)
+      return false if uri.nil? || uri.userinfo.present? || uri.host.blank? || non_default_port?(uri)
+      return false if mask && candidate.match?(UNSAFE_CSS_URL_CHARS)
+
+      true
     end
 
     def validate_input_contract(platform, errors)
@@ -88,20 +97,28 @@ module ::DiscourseSocialProfile
         errors[:allowed_hosts] = "is required for url_locked" if normalized_hosts(platform.allowed_hosts).empty?
       end
 
-      normalized_hosts(platform.allowed_hosts).each do |host|
+      hosts = normalized_hosts(platform.allowed_hosts)
+      if hosts.length > MAX_ALLOWED_HOSTS
+        errors[:allowed_hosts] = "cannot contain more than #{MAX_ALLOWED_HOSTS} host rules"
+        return
+      end
+
+      hosts.each do |host|
         bare = host.delete_prefix(".")
-        if bare.blank? || bare.include?(":") || bare.include?("/") || !bare.ascii_only? || bare.match?(/\s/)
-          errors[:allowed_hosts] = "contains an invalid hostname"
+        if bare.blank? || bare.include?(":") || bare.include?("/") || !bare.ascii_only? || bare.match?(/\s/) ||
+             !::DiscourseSocialProfile::UrlSafety.public_host?(bare)
+          errors[:allowed_hosts] = "contains an invalid or non-public hostname"
           break
         end
       end
     end
 
     def safe_https_uri(value)
-      return nil if value.blank? || value.match?(/[\u0000-\u001F\u007F]/) || value.match?(/%(?:0[0-9a-f]|1[0-9a-f]|7f)/i) || value.start_with?("//")
+      return nil if value.blank? || ::DiscourseSocialProfile::UrlSafety.unsafe_control_encoding?(value) || value.start_with?("//")
       uri = URI.parse(value)
       return nil unless uri.is_a?(URI::HTTPS)
       return nil unless uri.host.to_s.ascii_only?
+      return nil unless ::DiscourseSocialProfile::UrlSafety.public_host?(uri.host)
       uri
     rescue URI::InvalidURIError
       nil

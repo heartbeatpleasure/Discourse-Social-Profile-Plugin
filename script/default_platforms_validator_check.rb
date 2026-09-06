@@ -15,6 +15,7 @@ module DiscourseSocialProfile
     REGEX_TIMEOUT = 0.05
   end
 end
+require File.expand_path("../lib/discourse_social_profile/url_safety", __dir__)
 require File.expand_path("../lib/discourse_social_profile/default_platforms", __dir__)
 require File.expand_path("../lib/discourse_social_profile/platform_validator", __dir__)
 Attrs = Struct.new(:input_type,:base_url,:allowed_hosts,:path_regex,:badge_background,:badge_background_dark,:color,:color_dark,:badge_radius,:icon_image_url,:icon_mask_url, keyword_init: true)

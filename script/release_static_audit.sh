@@ -8,6 +8,7 @@ ruby script/source_contract_check.rb
 
 echo
 echo "== Isolated services =="
+ruby script/isolated_url_safety_check.rb | tail -1
 ruby script/isolated_link_builder_check.rb | tail -1
 ruby script/isolated_platform_validator_check.rb | tail -1
 ruby script/default_platforms_validator_check.rb

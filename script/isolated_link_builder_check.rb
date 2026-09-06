@@ -29,6 +29,7 @@ class EmailAddressValidator
 end
 
 Platform = Struct.new(:input_type, :base_url, :allowed_hosts, :path_regex, keyword_init: true)
+require File.expand_path("../lib/discourse_social_profile/url_safety", __dir__)
 require File.expand_path("../lib/discourse_social_profile/link_builder", __dir__)
 
 LB = DiscourseSocialProfile::LinkBuilder
@@ -79,8 +80,17 @@ check("suffix host also allows apex") { ok!(LB.call(platform(type: "url_locked",
 check("trailing host dot canonicalizes") { ok!(LB.call(platform(type: "url_locked", hosts: "example.com"), "https://EXAMPLE.com./u"), href: "https://example.com/u") }
 check("default 443 canonicalizes away") { ok!(LB.call(platform(type: "url_locked", hosts: "example.com"), "https://example.com:443/u"), href: "https://example.com/u") }
 check("nondefault port rejected") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com"), "https://example.com:444/u"), :invalid_host) }
+check("loopback destinations rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://127.0.0.1/profile"), :invalid_host) }
+check("private network destinations rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://10.0.0.5/profile"), :invalid_host) }
+check("local hostname destinations rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://localhost/profile"), :invalid_host) }
+check("browser shorthand loopback rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://2130706433/profile"), :invalid_host) }
+check("IPv4-mapped IPv6 destination rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://[::ffff:127.0.0.1]/profile"), :invalid_host) }
+check("NAT64 private destination rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://[64:ff9b::c0a8:101]/profile"), :invalid_host) }
 check("path regex happy path") { ok!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/\\d+/?$'), "https://example.com/users/123")) }
 check("path regex mismatch") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/\\d+/?$'), "https://example.com/users/alice"), :invalid_path) }
+check("encoded slash cannot bypass strict path regex") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/[^/]+/?$'), "https://example.com/users/alice%2Fadmin"), :invalid_path) }
+check("double encoded slash cannot bypass strict path regex") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/[^/]+/?$'), "https://example.com/users/alice%252Fadmin"), :invalid_path) }
+check("encoded backslash cannot bypass strict path regex") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/[^/]+/?$'), "https://example.com/users/alice%5Cadmin"), :invalid_path) }
 check("invalid regex fails closed") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: "("), "https://example.com/users/1"), :invalid_regex) }
 check("dot segments normalized before path regex") { ok!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/safe/profile$'), "https://example.com/a/../safe/profile"), href: "https://example.com/safe/profile") }
 check("percent encoded dot segments normalized") { ok!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/safe/profile$'), "https://example.com/a/%2e%2e/safe/profile"), href: "https://example.com/safe/profile") }
@@ -90,6 +100,9 @@ check("double encoded nested URL rejected") { fail!(LB.call(platform(type: "url_
 check("ordinary query preserved") { ok!(LB.call(platform(type: "url_any_https"), "https://example.com/profile?tab=about#bio"), href: "https://example.com/profile?tab=about#bio") }
 check("protocol-relative rejected") { fail!(LB.call(platform(type: "url_any_https"), "//example.com/u"), :invalid_protocol) }
 check("encoded control rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/a%0d%0aX"), :invalid_value) }
+check("deeply encoded control rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/a%252525250aX"), :invalid_value) }
+check("deeply encoded slash cannot bypass strict path regex") { fail!(LB.call(platform(type: "url_locked", hosts: "example.com", regex: '^/users/[^/]+/?$'), "https://example.com/users/alice%2525252Fadmin"), :invalid_path) }
+check("deeply encoded nested URL rejected") { fail!(LB.call(platform(type: "url_any_https"), "https://example.com/?next=https%2525253A%2525252F%2525252Fevil.test"), :invalid_url) }
 check("blank rejected") { fail!(LB.call(platform(type: "url_any_https"), "  \t"), :blank) }
 
 puts "LinkBuilder isolated checks: #{$passed} passed, 0 failed"

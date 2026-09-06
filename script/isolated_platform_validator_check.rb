@@ -31,6 +31,7 @@ Platform = Struct.new(
   keyword_init: true
 )
 
+require File.expand_path("../lib/discourse_social_profile/url_safety", __dir__)
 require File.expand_path("../lib/discourse_social_profile/platform_validator", __dir__)
 PV = DiscourseSocialProfile::PlatformValidator
 $passed = 0
@@ -71,6 +72,11 @@ check("HTTPS base accepted") { valid!(platform(input_type: "handle", base_url: "
 check("HTTP base rejected") { invalid!(platform(input_type: "handle", base_url: "http://example.com/u/"), :base_url) }
 check("base userinfo rejected") { invalid!(platform(input_type: "handle", base_url: "https://u:p@example.com/u/"), :base_url) }
 check("base query rejected") { invalid!(platform(input_type: "handle", base_url: "https://example.com/u/?x=1"), :base_url) }
+check("private base host rejected") { invalid!(platform(input_type: "handle", base_url: "https://127.0.0.1/u/"), :base_url) }
+check("browser shorthand private base rejected") { invalid!(platform(input_type: "handle", base_url: "https://2130706433/u/"), :base_url) }
+check("deeply encoded control in base rejected") { invalid!(platform(input_type: "handle", base_url: "https://example.com/%252525250a/u/"), :base_url) }
+check("NAT64 private base rejected") { invalid!(platform(input_type: "handle", base_url: "https://[64:ff9b::c0a8:101]/u/"), :base_url) }
+check("local allowed host rejected") { invalid!(platform(input_type: "url_locked", allowed_hosts: "localhost"), :allowed_hosts) }
 check("invalid hostname rule rejected") { invalid!(platform(input_type: "url_locked", allowed_hosts: "example.com/path"), :allowed_hosts) }
 check("suffix hostname rule accepted") { valid!(platform(input_type: "url_locked", allowed_hosts: ".example.com")) }
 check("valid regex accepted") { valid!(platform(path_regex: "^/users/[0-9]+/?$")) }
@@ -82,6 +88,8 @@ check("external icon disabled by default") { invalid!(platform(icon_image_url: "
 SiteSetting.discourse_social_profile_allow_external_icon_urls = true
 check("safe external image URL accepted when enabled") { valid!(platform(icon_image_url: "https://cdn.example.com/icon.png")) }
 check("external icon userinfo rejected") { invalid!(platform(icon_image_url: "https://u:p@cdn.example.com/icon.png"), :icon_image_url) }
+check("external icon private host rejected") { invalid!(platform(icon_image_url: "https://127.0.0.1/icon.png"), :icon_image_url) }
+check("external icon deeply encoded control rejected") { invalid!(platform(icon_image_url: "https://cdn.example.com/%252525250a.png"), :icon_image_url) }
 check("mask CSS-breaking characters rejected") { invalid!(platform(icon_mask_url: "https://cdn.example.com/a'b.svg"), :icon_mask_url) }
 
 puts "PlatformValidator isolated checks: #{$passed} passed, 0 failed"

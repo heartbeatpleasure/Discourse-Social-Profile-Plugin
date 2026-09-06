@@ -16,6 +16,7 @@ end
 class EmailAddressValidator
   def self.valid_value?(v) = !!(v.to_s =~ /\A[^\s@]+@[^\s@]+\.[^\s@]+\z/)
 end
+require File.expand_path("../lib/discourse_social_profile/url_safety", __dir__)
 require File.expand_path("../lib/discourse_social_profile/default_platforms", __dir__)
 require File.expand_path("../lib/discourse_social_profile/link_builder", __dir__)
 P = Struct.new(:input_type,:base_url,:allowed_hosts,:path_regex, keyword_init: true)

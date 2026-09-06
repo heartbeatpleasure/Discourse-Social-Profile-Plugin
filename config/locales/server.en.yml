@@ -6,13 +6,14 @@ en:
     discourse_social_profile_icon_color: "Global social icon color for light mode."
     discourse_social_profile_icon_color_dark: "Optional global social icon color for dark mode; falls back to the light color."
     discourse_social_profile_use_platform_colors: "Use per-platform light/dark icon colors when configured."
-    discourse_social_profile_allow_external_icon_urls: "Allow administrator-configured external HTTPS icon URLs. Native uploads are safer and preferred."
-    discourse_social_profile_track_clicks: "Track privacy-minimal aggregate clicks per platform/day. Disabled by default."
+    discourse_social_profile_allow_external_icon_urls: "Allow administrator-configured external HTTPS icon URLs. Native uploads are safer and preferred; external icons make third-party browser requests and can expose visitor IP addresses to the icon host."
+    discourse_social_profile_track_clicks: "Track privacy-minimal aggregate clicks per platform/day. The plugin stores no per-user click history; normal Discourse/web-server request logs still apply. Disabled by default."
     discourse_social_profile_click_stats_retention_days: "Days to keep aggregate click statistics."
     discourse_social_profile_extra_svg_icons: "Additional Discourse SVG icon names used by custom social platforms."
   discourse_social_profile:
     errors:
       platform_change_invalidates_links: "This validation change would invalidate one or more existing user links. Disable the platform or correct those values first."
+      platform_validation_audit_timed_out: "The existing-link safety check took too long, so this validation change was rejected without modifying the platform. Try again during lower load or disable the platform before making a large validation change."
       platform_in_use: "This platform is in use and cannot be deleted. Disable it instead."
       invalid_reorder: "The platform order is invalid or incomplete."
       invalid_icon_upload: "The icon upload is missing, private, or not owned by the current administrator."

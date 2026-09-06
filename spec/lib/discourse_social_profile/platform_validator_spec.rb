@@ -39,6 +39,18 @@ RSpec.describe DiscourseSocialProfile::PlatformValidator do
     expect(described_class.call(platform(icon_mask_url: "https://u:p@cdn.example/mask.svg"))[:errors]).to have_key(:icon_mask_url)
   end
 
+  it "rejects private, local and browser-ambiguous hosts in configuration" do
+    expect(described_class.call(platform(base_url: "https://127.1/"))[:errors]).to have_key(:base_url)
+    expect(described_class.call(platform(base_url: "https://router.local/"))[:errors]).to have_key(:base_url)
+    expect(described_class.call(platform(base_url: "https://example.com/%252525250a/"))[:errors]).to have_key(:base_url)
+    expect(described_class.call(platform(allowed_hosts: "home.arpa"))[:errors]).to have_key(:allowed_hosts)
+
+    SiteSetting.discourse_social_profile_allow_external_icon_urls = true
+    expect(
+      described_class.call(platform(icon_image_url: "https://192.168.1.2/icon.png"))[:errors],
+    ).to have_key(:icon_image_url)
+  end
+
   it "rejects invalid regex" do
     expect(described_class.call(platform(path_regex: "["))[:errors]).to have_key(:path_regex)
   end
