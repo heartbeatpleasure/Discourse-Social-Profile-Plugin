@@ -52,6 +52,32 @@ check(checks, "27 authoritative component defaults") do
   end
 end
 
+check(checks, "Plugin-native social platform additions") do
+  defaults = read("lib/discourse_social_profile/default_platforms.rb")
+  plugin = read("plugin.rb")
+  added = %w[
+    reddit snapchat pinterest kick patreon kofi buymeacoffee beacons medium
+    deviantart vimeo flickr chaturbate manyvids loyalfans clips4sale iwantclips
+    redgifs xvideos
+  ]
+  added.each { |key| assert(defaults.include?(%(key: "#{key}")), "missing default #{key}") }
+
+  %w[
+    fab-reddit-alien fab-snapchat fab-pinterest-p fab-patreon fab-medium
+    fab-deviantart fab-vimeo-v fab-flickr
+  ].each { |icon| assert(plugin.include?(icon), "missing preloaded icon #{icon}") }
+
+  %w[
+    kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale
+    iwantclips redgifs xvideos
+  ].each do |name|
+    path = ROOT / "public/images/social-profile/#{name}.svg"
+    assert(path.exist?, "missing bundled icon #{name}.svg")
+    text = path.read.downcase
+    assert(!text.match?(/<script|onload\s*=|onclick\s*=|javascript:|<foreignobject/), "active marker #{name}.svg")
+  end
+end
+
 check(checks, "Global parity defaults and SVG registrations") do
   fixture = JSON.parse(read("spec/fixtures/component_global_settings.json"))
   settings = YAML.load_file(ROOT / "config/settings.yml", aliases: true).fetch("plugins")
@@ -321,7 +347,9 @@ end
 
 check(checks, "Database constraints and migration count") do
   migrations = Dir[ROOT.join("db/migrate/*.rb")]
-  assert(migrations.length == 5, "expected 5 migrations including seed and guidance update")
+  assert(migrations.length == 6, "expected 6 migrations including platform expansion")
+  expansion = read("db/migrate/20260906020000_add_additional_social_profile_platforms.rb")
+  assert(expansion.include?("NEW_KEYS") && expansion.include?("redgifs") && expansion.include?("xvideos"), "platform expansion migration missing")
   links = read("db/migrate/20260905000200_create_discourse_social_profile_links.rb")
   clicks = read("db/migrate/20260905000300_create_discourse_social_profile_click_stats.rb")
   assert(links.include?("unique: true") && links.include?("on_delete: :cascade") && links.include?("on_delete: :restrict"), "link constraints missing")

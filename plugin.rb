@@ -2,7 +2,7 @@
 
 # name: Discourse-Social-Profile-Plugin
 # about: Native social profile links for Discourse with plugin-owned data, secure validation, admin management and statistics.
-# version: 0.1.10
+# version: 0.1.11
 # authors: Chris
 # url: https://github.com/heartbeatpleasure/Discourse-Social-Profile-Plugin
 # required_version: 2026.7.2
@@ -20,8 +20,12 @@ register_asset "stylesheets/mobile/social-profile.scss", :mobile
 
 module ::DiscourseSocialProfile
   PLUGIN_NAME = "Discourse-Social-Profile-Plugin"
-  VERSION = "0.1.10"
-  BUNDLED_MASKS = %w[onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask].freeze
+  VERSION = "0.1.11"
+  BUNDLED_MASKS = %w[
+    onlyfans fansly fetlife fancentro linktree pornhub tumblr discord-mask
+    kick kofi buymeacoffee beacons chaturbate manyvids loyalfans clips4sale
+    iwantclips redgifs xvideos
+  ].freeze
   PUBLIC_ASSET_BASE = "/plugins/#{PLUGIN_NAME}/images/social-profile".freeze
 end
 
@@ -29,7 +33,9 @@ end
   address-card user globe link envelope fab-twitter fab-facebook fab-linkedin-in
   fab-instagram fab-threads fab-youtube fab-discord fab-steam fab-twitch
   fab-bandcamp fab-spotify fab-soundcloud fab-tiktok fab-telegram fab-mastodon
-  fab-bluesky fab-github fab-strava fab-tumblr fab-amazon image arrow-up
+  fab-bluesky fab-github fab-strava fab-tumblr fab-amazon fab-reddit-alien
+  fab-snapchat fab-pinterest-p fab-patreon fab-medium fab-deviantart fab-vimeo-v
+  fab-flickr image arrow-up
   arrow-down pencil trash-can plus check flask
 ].each { |icon| register_svg_icon icon }
 

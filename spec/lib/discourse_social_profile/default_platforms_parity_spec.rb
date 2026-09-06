@@ -3,10 +3,20 @@
 require "json"
 
 RSpec.describe DiscourseSocialProfile::DefaultPlatforms do
-  it "contains exactly the 27 authoritative Theme Component platform keys in order" do
+  it "preserves the 27 authoritative Theme Component platforms and appends plugin-native platforms" do
     fixture = JSON.parse(File.read(File.expand_path("../../fixtures/component_social_links.json", __dir__)))
-    expect(described_class::DATA.map { |row| row[:key] }).to eq(fixture.map { |row| row["id"] })
-    expect(described_class::DATA.length).to eq(27)
+    fixture_keys = fixture.map { |row| row["id"] }
+    keys = described_class::DATA.map { |row| row[:key] }
+
+    expect(keys.first(fixture_keys.length)).to eq(fixture_keys)
+    expect(keys.drop(fixture_keys.length)).to eq(
+      %w[
+        reddit snapchat pinterest kick patreon kofi buymeacoffee beacons medium
+        deviantart vimeo flickr chaturbate manyvids loyalfans clips4sale iwantclips
+        redgifs xvideos
+      ],
+    )
+    expect(described_class::DATA.length).to eq(46)
   end
 
   it "preserves validation and presentation defaults" do

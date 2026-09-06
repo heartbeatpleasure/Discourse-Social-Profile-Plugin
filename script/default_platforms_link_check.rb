@@ -27,6 +27,8 @@ special = {
   "steam" => "https://steamcommunity.com/id/example",
   "mastodon" => "https://mastodon.social/@example",
   "amazon_wishlist" => "https://www.amazon.com/hz/wishlist/ls/ABC123",
+  "manyvids" => "https://www.manyvids.com/Profile/1000592171/example",
+  "iwantclips" => "https://iwantclips.com/store/1179915/example",
 }
 passed=0
 DiscourseSocialProfile::DefaultPlatforms::DATA.each do |row|
