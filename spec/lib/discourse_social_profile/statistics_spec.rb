@@ -29,5 +29,7 @@ RSpec.describe DiscourseSocialProfile::Statistics do
     result = described_class.calculate
     expect(result[:clicks_30d_total]).to eq(4)
     expect(result[:clicks].find { |row| row[:platform_id] == p1.id }[:click_share_percentage]).to eq(75.0)
+    expect(result[:platforms].find { |row| row[:id] == p1.id }[:clicks_30d]).to eq(3)
+    expect(result[:platforms].find { |row| row[:id] == p2.id }[:clicks_30d]).to eq(1)
   end
 end

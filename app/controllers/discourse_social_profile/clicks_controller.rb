@@ -31,7 +31,7 @@ module ::DiscourseSocialProfile
 
       response.headers["Referrer-Policy"] = "no-referrer"
       response.headers["Cache-Control"] = "no-store"
-      redirect_to result.href, allow_other_host: true
+      redirect_with_client_support(result.href, allow_other_host: true)
     end
   end
 end

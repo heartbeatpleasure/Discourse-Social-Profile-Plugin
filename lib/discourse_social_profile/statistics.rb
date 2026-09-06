@@ -2,7 +2,7 @@
 
 module ::DiscourseSocialProfile
   module Statistics
-    CACHE_KEY = "discourse-social-profile:statistics:v2"
+    CACHE_KEY = "discourse-social-profile:statistics:v3"
     CACHE_TTL = 5.minutes
     INVALID_AUDIT_LIMIT = 5000
 
@@ -22,6 +22,9 @@ module ::DiscourseSocialProfile
       total_links = Link.where(user_id: eligible_user_ids).count
       linked_users = Link.where(user_id: eligible_user_ids).distinct.count(:user_id)
       distribution = link_distribution
+
+      click_rows = click_statistics
+      clicks_by_platform = click_rows.index_by { |row| row[:platform_id] }
 
       usage =
         Platform
@@ -43,12 +46,12 @@ module ::DiscourseSocialProfile
               users: count,
               percentage_of_linked_users:
                 linked_users.positive? ? ((count.to_f / linked_users) * 100).round(1) : 0.0,
+              clicks_30d: clicks_by_platform.dig(platform.id, :clicks_30d).to_i,
             }
           end
           .sort_by { |row| [-row[:users], row[:label].to_s.downcase] }
 
       invalid_audit = audit_invalid_links
-      click_rows = click_statistics
       clicks_30d_total = click_rows.sum { |row| row[:clicks_30d].to_i }
 
       {

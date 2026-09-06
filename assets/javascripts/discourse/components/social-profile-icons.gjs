@@ -188,6 +188,9 @@ export default class SocialProfileIcons extends Component {
               "height:1.2em",
               "flex:0 0 1.2em",
               "background-color:var(--slc-icon-color,var(--slc-global-icon-color,currentColor))",
+              ...(this.siteSettings.discourse_social_profile_use_platform_colors
+                ? []
+                : ["opacity:0.62"]),
               `-webkit-mask:url('${maskUrl}') no-repeat center / contain`,
               `mask:url('${maskUrl}') no-repeat center / contain`,
             ].join(";")

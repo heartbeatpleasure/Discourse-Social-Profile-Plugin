@@ -98,7 +98,7 @@ module ::DiscourseSocialProfile
       base_url: "https://twitter.com/",
       allowed_hosts: "twitter.com,www.twitter.com,x.com,www.x.com",
       path_regex: nil,
-      icon_name: "fab-twitter",
+      icon_name: "fab-x-twitter",
       builtin_icon: nil,
       badge_background: nil,
       badge_background_dark: nil,

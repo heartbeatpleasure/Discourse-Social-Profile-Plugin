@@ -12,10 +12,10 @@ const statisticsRefreshUrl = getURL(
 export default <template>
   <style>
     .sp-stats {
-      --sp-stats-border: var(--primary-low);
-      --sp-stats-muted: var(--primary-medium);
-      --sp-stats-surface: var(--secondary);
-      --sp-stats-alt: var(--primary-very-low);
+      --sp-border: var(--primary-low);
+      --sp-muted: var(--primary-medium);
+      --sp-surface: var(--secondary);
+      --sp-alt: var(--primary-very-low);
       display: grid;
       gap: 1rem;
       width: 100%;
@@ -33,9 +33,9 @@ export default <template>
     .sp-stats__metric,
     .sp-stats__panel {
       box-sizing: border-box;
-      border: 1px solid var(--sp-stats-border);
+      border: 1px solid var(--sp-border);
       border-radius: 18px;
-      background: var(--sp-stats-surface);
+      background: var(--sp-surface);
       box-shadow: 0 1px 2px rgb(0 0 0 / 3%);
     }
 
@@ -45,7 +45,6 @@ export default <template>
       justify-content: space-between;
       gap: 1.25rem;
       padding: 1.25rem 1.35rem;
-      background: linear-gradient(180deg, var(--sp-stats-surface), var(--sp-stats-alt));
     }
 
     .sp-stats__header-copy {
@@ -65,7 +64,7 @@ export default <template>
     .sp-stats__metric p,
     .sp-stats__empty p,
     .sp-stats__guide p {
-      color: var(--sp-stats-muted);
+      color: var(--sp-muted);
       line-height: 1.45;
     }
 
@@ -94,7 +93,7 @@ export default <template>
     }
 
     .sp-stats__section-heading p {
-      color: var(--sp-stats-muted);
+      color: var(--sp-muted);
     }
 
     .sp-stats__metrics {
@@ -112,14 +111,9 @@ export default <template>
       padding: 1rem 1.05rem;
     }
 
-    .sp-stats__metric.is-primary {
-      border-color: var(--tertiary-low);
-      background: linear-gradient(180deg, var(--sp-stats-surface), var(--tertiary-very-low));
-    }
-
     .sp-stats__metric-label,
     .sp-stats__eyebrow {
-      color: var(--sp-stats-muted);
+      color: var(--sp-muted);
       font-size: var(--font-down-1);
       font-weight: 700;
     }
@@ -134,6 +128,7 @@ export default <template>
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
+      align-items: start;
       min-width: 0;
     }
 
@@ -160,7 +155,7 @@ export default <template>
       margin-bottom: .35rem;
       padding: .28rem .58rem;
       border-radius: 999px;
-      background: var(--sp-stats-alt);
+      background: var(--sp-alt);
       line-height: 1;
     }
 
@@ -168,70 +163,62 @@ export default <template>
       font-size: var(--font-up-2);
     }
 
-    .sp-stats__distribution {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: .7rem;
-    }
-
-    .sp-stats__distribution-item {
-      display: grid;
-      gap: .15rem;
-      min-width: 0;
-      padding: .8rem;
-      border-radius: 14px;
-      background: var(--sp-stats-alt);
-      text-align: center;
-    }
-
-    .sp-stats__distribution-item span,
-    .sp-stats__distribution-item small {
-      color: var(--sp-stats-muted);
-    }
-
-    .sp-stats__distribution-item strong {
-      font-size: var(--font-up-3);
-      line-height: 1.1;
-    }
-
-    .sp-stats__kv {
+    .sp-stats__rows {
       display: grid;
       gap: 0;
     }
 
-    .sp-stats__kv > div {
+    .sp-stats__row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding: .72rem 0;
-      border-bottom: 1px solid var(--sp-stats-border);
+      min-width: 0;
+      padding: .78rem 0;
+      border-bottom: 1px solid var(--sp-border);
     }
 
-    .sp-stats__kv > div:first-child {
+    .sp-stats__row:first-child {
       padding-top: 0;
     }
 
-    .sp-stats__kv > div:last-child {
+    .sp-stats__row:last-child {
       padding-bottom: 0;
       border-bottom: 0;
     }
 
-    .sp-stats__kv span {
-      color: var(--sp-stats-muted);
+    .sp-stats__row-label {
+      min-width: 0;
+      color: var(--sp-muted);
+      line-height: 1.35;
     }
 
-    .sp-stats__kv strong {
+    .sp-stats__row-value {
+      display: inline-flex;
       flex: 0 0 auto;
-      font-size: var(--font-up-1);
+      align-items: baseline;
+      gap: .35rem;
+      white-space: nowrap;
+    }
+
+    .sp-stats__row-value strong {
+      min-width: 3ch;
+      text-align: right;
+      font-size: var(--font-up-2);
+      line-height: 1;
+    }
+
+    .sp-stats__row-value small {
+      color: var(--sp-muted);
+      font-size: var(--font-down-1);
     }
 
     .sp-stats__note {
       margin-top: .8rem !important;
       padding: .7rem .8rem;
       border-radius: 10px;
-      background: var(--sp-stats-alt);
-      color: var(--sp-stats-muted);
+      background: var(--sp-alt);
+      color: var(--sp-muted);
       font-size: var(--font-down-1);
       line-height: 1.4;
     }
@@ -243,7 +230,7 @@ export default <template>
 
     .sp-stats__table {
       width: 100%;
-      min-width: 38rem;
+      min-width: 42rem;
     }
 
     .sp-stats__table .d-table__cell {
@@ -251,7 +238,7 @@ export default <template>
     }
 
     .sp-stats__table thead .d-table__cell {
-      color: var(--sp-stats-muted);
+      color: var(--sp-muted);
       font-size: var(--font-down-1);
       font-weight: 700;
     }
@@ -262,7 +249,7 @@ export default <template>
       justify-content: center;
       padding: .2rem .48rem;
       border-radius: 999px;
-      background: var(--sp-stats-alt);
+      background: var(--sp-alt);
       font-size: var(--font-down-1);
       font-weight: 700;
     }
@@ -273,17 +260,48 @@ export default <template>
       justify-content: space-between;
       gap: 1rem;
       margin-bottom: .8rem;
-      padding: .8rem;
+      padding: .85rem 1rem;
       border-radius: 14px;
-      background: var(--sp-stats-alt);
+      background: var(--sp-alt);
     }
 
     .sp-stats__click-total span {
-      color: var(--sp-stats-muted);
+      color: var(--sp-muted);
     }
 
     .sp-stats__click-total strong {
       font-size: var(--font-up-3);
+    }
+
+    .sp-stats__click-list {
+      display: grid;
+      gap: 0;
+    }
+
+    .sp-stats__click-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(5rem, auto) minmax(6.5rem, auto);
+      gap: .8rem;
+      align-items: center;
+      padding: .72rem 0;
+      border-bottom: 1px solid var(--sp-border);
+    }
+
+    .sp-stats__click-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .sp-stats__click-row--header {
+      padding-top: 0;
+      color: var(--sp-muted);
+      font-size: var(--font-down-1);
+      font-weight: 700;
+    }
+
+    .sp-stats__click-row > :nth-child(2),
+    .sp-stats__click-row > :nth-child(3) {
+      text-align: right;
     }
 
     .sp-stats__empty {
@@ -291,7 +309,7 @@ export default <template>
       gap: .35rem;
       padding: 1rem;
       border-radius: 14px;
-      background: var(--sp-stats-alt);
+      background: var(--sp-alt);
     }
 
     .sp-stats__guide {
@@ -301,7 +319,7 @@ export default <template>
 
     .sp-stats__guide > div {
       padding-bottom: .8rem;
-      border-bottom: 1px solid var(--sp-stats-border);
+      border-bottom: 1px solid var(--sp-border);
     }
 
     .sp-stats__guide > div:last-child {
@@ -317,10 +335,6 @@ export default <template>
     @media (max-width: 980px) {
       .sp-stats__metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .sp-stats__distribution {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
@@ -351,8 +365,7 @@ export default <template>
         border-radius: 14px;
       }
 
-      .sp-stats__metrics,
-      .sp-stats__distribution {
+      .sp-stats__metrics {
         grid-template-columns: 1fr;
       }
 
@@ -364,11 +377,22 @@ export default <template>
         min-height: 0;
       }
 
-      .sp-stats__kv > div,
+      .sp-stats__row,
       .sp-stats__click-total {
         align-items: flex-start;
-        flex-direction: column;
-        gap: .25rem;
+      }
+
+      .sp-stats__click-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .sp-stats__click-row > :nth-child(3) {
+        grid-column: 1 / -1;
+        text-align: left;
+      }
+
+      .sp-stats__click-row--header > :nth-child(3) {
+        display: none;
       }
     }
   </style>
@@ -411,7 +435,7 @@ export default <template>
         <p>{{i18n "discourse_social_profile.admin.statistics.users_with_profiles_help"}}</p>
       </article>
 
-      <article class="sp-stats__metric is-primary">
+      <article class="sp-stats__metric">
         <span class="sp-stats__metric-label">{{i18n "discourse_social_profile.admin.statistics.adoption"}}</span>
         <strong>{{@model.adoption_percentage}}%</strong>
         <p>{{i18n "discourse_social_profile.admin.statistics.adoption_help"}}</p>
@@ -445,12 +469,27 @@ export default <template>
           </div>
         </div>
 
-        <div class="sp-stats__distribution">
-          <div class="sp-stats__distribution-item"><span>1 link</span><strong>{{@model.distribution.one}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
-          <div class="sp-stats__distribution-item"><span>2 links</span><strong>{{@model.distribution.two}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
-          <div class="sp-stats__distribution-item"><span>3 links</span><strong>{{@model.distribution.three}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
-          <div class="sp-stats__distribution-item"><span>4 links</span><strong>{{@model.distribution.four}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
-          <div class="sp-stats__distribution-item"><span>5+ links</span><strong>{{@model.distribution.five_plus}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></div>
+        <div class="sp-stats__rows">
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">1 link</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.one}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">2 links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.two}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">3 links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.three}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">4 links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.four}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
+          <div class="sp-stats__row">
+            <span class="sp-stats__row-label">5+ links</span>
+            <span class="sp-stats__row-value"><strong>{{@model.distribution.five_plus}}</strong><small>{{i18n "discourse_social_profile.admin.statistics.users_column"}}</small></span>
+          </div>
         </div>
       </article>
 
@@ -462,13 +501,13 @@ export default <template>
           </div>
         </div>
 
-        <div class="sp-stats__kv">
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_7d"}}</span><strong>{{@model.new_links_7d}}</strong></div>
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.new_links_30d"}}</span><strong>{{@model.new_links_30d}}</strong></div>
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_7d"}}</span><strong>{{@model.changed_links_7d}}</strong></div>
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.changed_links_30d"}}</span><strong>{{@model.changed_links_30d}}</strong></div>
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.invalid_values"}}</span><strong>{{@model.invalid_values_detected}}</strong></div>
-          <div><span>{{i18n "discourse_social_profile.admin.statistics.audited_values"}}</span><strong>{{@model.invalid_values_audited}}</strong></div>
+        <div class="sp-stats__rows">
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.new_links_7d"}}</span><span class="sp-stats__row-value"><strong>{{@model.new_links_7d}}</strong></span></div>
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.new_links_30d"}}</span><span class="sp-stats__row-value"><strong>{{@model.new_links_30d}}</strong></span></div>
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.changed_links_7d"}}</span><span class="sp-stats__row-value"><strong>{{@model.changed_links_7d}}</strong></span></div>
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.changed_links_30d"}}</span><span class="sp-stats__row-value"><strong>{{@model.changed_links_30d}}</strong></span></div>
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.invalid_values"}}</span><span class="sp-stats__row-value"><strong>{{@model.invalid_values_detected}}</strong></span></div>
+          <div class="sp-stats__row"><span class="sp-stats__row-label">{{i18n "discourse_social_profile.admin.statistics.audited_values"}}</span><span class="sp-stats__row-value"><strong>{{@model.invalid_values_audited}}</strong></span></div>
         </div>
 
         {{#if @model.invalid_values_scan_truncated}}
@@ -495,6 +534,9 @@ export default <template>
               <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
               <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.users_column"}}</th>
               <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
+              {{#if @model.click_tracking_enabled}}
+                <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.clicks_30d_column"}}</th>
+              {{/if}}
             </tr>
           </thead>
           <tbody>
@@ -503,6 +545,9 @@ export default <template>
                 <td class="d-table__cell"><strong>{{platform.label}}</strong></td>
                 <td class="d-table__cell">{{platform.users}}</td>
                 <td class="d-table__cell"><span class="sp-stats__share-pill">{{platform.percentage_of_linked_users}}%</span></td>
+                {{#if @model.click_tracking_enabled}}
+                  <td class="d-table__cell">{{platform.clicks_30d}}</td>
+                {{/if}}
               </tr>
             {{/each}}
           </tbody>
@@ -525,26 +570,27 @@ export default <template>
             <strong>{{@model.clicks_30d_total}}</strong>
           </div>
 
-          <div class="sp-stats__table-wrap">
-            <table class="d-table sp-stats__table">
-              <thead>
-                <tr class="d-table__row">
-                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</th>
-                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.clicks_column"}}</th>
-                  <th class="d-table__cell">{{i18n "discourse_social_profile.admin.statistics.share_column"}}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{#each @model.clicks as |row|}}
-                  <tr class="d-table__row">
-                    <td class="d-table__cell"><strong>{{row.label}}</strong></td>
-                    <td class="d-table__cell">{{row.clicks_30d}}</td>
-                    <td class="d-table__cell"><span class="sp-stats__share-pill">{{row.click_share_percentage}}%</span></td>
-                  </tr>
-                {{/each}}
-              </tbody>
-            </table>
-          </div>
+          {{#if @model.clicks.length}}
+            <div class="sp-stats__click-list">
+              <div class="sp-stats__click-row sp-stats__click-row--header">
+                <span>{{i18n "discourse_social_profile.admin.statistics.platform_column"}}</span>
+                <span>{{i18n "discourse_social_profile.admin.statistics.clicks_column"}}</span>
+                <span>{{i18n "discourse_social_profile.admin.statistics.click_share_column"}}</span>
+              </div>
+              {{#each @model.clicks as |row|}}
+                <div class="sp-stats__click-row">
+                  <strong>{{row.label}}</strong>
+                  <span>{{row.clicks_30d}}</span>
+                  <span><span class="sp-stats__share-pill">{{row.click_share_percentage}}%</span></span>
+                </div>
+              {{/each}}
+            </div>
+          {{else}}
+            <div class="sp-stats__empty">
+              <strong>{{i18n "discourse_social_profile.admin.statistics.no_clicks_title"}}</strong>
+              <p>{{i18n "discourse_social_profile.admin.statistics.no_clicks_body"}}</p>
+            </div>
+          {{/if}}
         {{else}}
           <div class="sp-stats__empty">
             <strong>{{i18n "discourse_social_profile.admin.statistics.click_tracking_disabled_title"}}</strong>

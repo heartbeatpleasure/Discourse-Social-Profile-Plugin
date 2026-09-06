@@ -29,6 +29,15 @@ RSpec.describe DiscourseSocialProfile::ClicksController do
     expect(stat.click_count).to eq(1)
   end
 
+  it "supports Discourse XHR navigation without losing the external destination" do
+    SiteSetting.discourse_social_profile_track_clicks = true
+    sign_in(viewer)
+    get "/social-profile/click/#{link.click_token}", xhr: true
+    expect(response.status).to eq(200)
+    expect(response.headers["Discourse-Xhr-Redirect"]).to eq("true")
+    expect(response.body).to eq("https://example.com/u/owner")
+  end
+
   it "rejects forged, malformed and sequential identifiers" do
     SiteSetting.discourse_social_profile_track_clicks = true
     sign_in(viewer)

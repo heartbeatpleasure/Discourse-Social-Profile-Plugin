@@ -30,7 +30,8 @@ RSpec.describe DiscourseSocialProfile::DefaultPlatforms do
       expect(actual[:base_url].to_s).to eq(row["base_url"].to_s)
       expect(actual[:allowed_hosts].to_s).to eq(row["allowed_hosts"].to_s)
       expect(actual[:path_regex].to_s).to eq(row["path_regex"].to_s)
-      expect(actual[:icon_name]).to eq(row["icon"])
+      expected_icon = row["id"] == "x" ? "fab-x-twitter" : row["icon"]
+      expect(actual[:icon_name]).to eq(expected_icon)
       expect(actual[:legacy_user_field_name]).to eq(row["user_field"])
     end
   end

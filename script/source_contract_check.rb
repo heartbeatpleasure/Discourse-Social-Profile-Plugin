@@ -159,6 +159,7 @@ end
 
 check(checks, "Critical profile icon layout and masks do not depend on stylesheet load order") do
   renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  assert(renderer.include?('candidate.startsWith("/")'), "same-site tracking hrefs are rejected by the renderer")
   assert(renderer.include?("flex-direction:row") && renderer.include?("display:inline-flex"), "inline row layout fallback missing")
   assert(renderer.include?("-webkit-mask:url('") && renderer.include?("mask:url('"), "inline bundled-mask fallback missing")
   assert(renderer.include?("data-social-platform") && renderer.include?("data-social-profile-count"), "render diagnostics missing")
@@ -308,6 +309,8 @@ end
 check(checks, "Statistics page owns responsive admin styling") do
   page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-statistics.gjs")
   assert(page.include?("sp-stats__header") && page.include?("sp-stats__metrics"), "statistics card layout missing")
+  assert(page.include?("sp-stats__rows") && page.include?("clicks_30d_column"), "statistics distribution/click breakdown refresh missing")
+  assert(!page.include?("is-primary"), "adoption card still has one-off highlight styling")
   assert(page.include?("grid-template-columns: repeat(3") && page.include?("@media (max-width: 560px)"), "statistics responsive layout missing")
   assert(page.include?('/admin/plugins/social-profile') && page.include?("back_to_overview") && page.include?("open_settings"), "statistics header actions missing")
 end
@@ -336,6 +339,7 @@ check(checks, "Strict identifier parsing at request boundaries") do
   assert(prefs.include?("Integer(value.to_s, 10)") && admin.include?("Integer(value.to_s, 10)"), "strict numeric parse missing")
   clicks = read("app/controllers/discourse_social_profile/clicks_controller.rb")
   assert(clicks.include?("CLICK_TOKEN_PATTERN"), "strict click token parse missing")
+  assert(clicks.include?("redirect_with_client_support"), "click redirect is not Discourse navigation compatible")
 end
 
 check(checks, "Opaque click redirect identifiers") do
@@ -353,11 +357,23 @@ check(checks, "Click analytics is aggregate-only") do
   assert(migration.include?(":stat_date") && migration.include?(":platform_id") && migration.include?(":click_count"), "aggregate columns missing")
 end
 
+
+check(checks, "X icon and monochrome mask parity") do
+  plugin = read("plugin.rb")
+  defaults = read("lib/discourse_social_profile/default_platforms.rb")
+  renderer = read("assets/javascripts/discourse/components/social-profile-icons.gjs")
+  assert(plugin.include?("fab-x-twitter"), "X icon not registered")
+  assert(defaults.include?('key: "x"') && defaults.include?('icon_name: "fab-x-twitter"'), "X default icon not modernized")
+  assert(renderer.include?("opacity:0.62"), "bundled masks are not visually softened to match native icons")
+end
+
 check(checks, "Database constraints and migration count") do
   migrations = Dir[ROOT.join("db/migrate/*.rb")]
-  assert(migrations.length == 6, "expected 6 migrations including platform expansion")
+  assert(migrations.length == 7, "expected 7 migrations including platform expansion and X icon update")
   expansion = read("db/migrate/20260906020000_add_additional_social_profile_platforms.rb")
   assert(expansion.include?("NEW_KEYS") && expansion.include?("redgifs") && expansion.include?("xvideos"), "platform expansion migration missing")
+  x_icon = read("db/migrate/20260906123000_update_social_profile_x_icon.rb")
+  assert(x_icon.include?("fab-x-twitter") && x_icon.include?("fab-twitter"), "X icon migration missing")
   links = read("db/migrate/20260905000200_create_discourse_social_profile_links.rb")
   clicks = read("db/migrate/20260905000300_create_discourse_social_profile_click_stats.rb")
   assert(links.include?("unique: true") && links.include?("on_delete: :cascade") && links.include?("on_delete: :restrict"), "link constraints missing")
