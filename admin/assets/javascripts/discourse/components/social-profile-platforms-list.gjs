@@ -1,5 +1,4 @@
 import Component from "@glimmer/component";
-import { tracked } from "@glimmer/tracking";
 import { array, fn } from "@ember/helper";
 import { action } from "@ember/object";
 import { LinkTo } from "@ember/routing";
@@ -8,14 +7,12 @@ import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import SocialProfilePlatformIcon from "discourse/plugins/Discourse-Social-Profile-Plugin/discourse/components/social-profile-platform-icon";
 import DButton from "discourse/ui-kit/d-button";
-import { eq, or } from "discourse/truth-helpers";
+import { or } from "discourse/truth-helpers";
 import { i18n } from "discourse-i18n";
 
 export default class SocialProfilePlatformsList extends Component {
   @service dialog;
   @service router;
-
-  @tracked togglingPlatformId = null;
 
   @action
   async move(index, delta) {
@@ -38,11 +35,6 @@ export default class SocialProfilePlatformsList extends Component {
 
   @action
   async toggleEnabled(platform) {
-    if (this.togglingPlatformId) {
-      return;
-    }
-
-    this.togglingPlatformId = platform.id;
     try {
       await ajax(
         `/admin/plugins/discourse-social-profile/platforms/${platform.id}.json`,
@@ -54,8 +46,6 @@ export default class SocialProfilePlatformsList extends Component {
       this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
-    } finally {
-      this.togglingPlatformId = null;
     }
   }
 
@@ -95,9 +85,7 @@ export default class SocialProfilePlatformsList extends Component {
           <th class="d-table__cell --input">Input</th>
           <th class="d-table__cell --status">Status</th>
           <th class="d-table__cell --users">Users</th>
-          <th class="d-table__cell --toggle">
-            {{i18n "discourse_social_profile.admin.platforms.quick_toggle"}}
-          </th>
+          <th class="d-table__cell --active">Active</th>
           <th class="d-table__cell --controls"></th>
         </tr>
       </thead>
@@ -129,7 +117,7 @@ export default class SocialProfilePlatformsList extends Component {
               </span>
             </td>
             <td class="d-table__cell --users">{{platform.usage_count}}</td>
-            <td class="d-table__cell --toggle">
+            <td class="d-table__cell --active">
               <DButton
                 @action={{fn this.toggleEnabled platform}}
                 @icon={{if platform.enabled "eye" "eye-slash"}}
@@ -138,13 +126,15 @@ export default class SocialProfilePlatformsList extends Component {
                   "discourse_social_profile.admin.platforms.disable_platform"
                   "discourse_social_profile.admin.platforms.enable_platform"
                 }}
-                @isLoading={{eq this.togglingPlatformId platform.id}}
-                @disabled={{this.togglingPlatformId}}
-                class={{if platform.enabled "btn-small btn-flat sp-platform-toggle is-enabled" "btn-small btn-flat sp-platform-toggle is-disabled"}}
+                class={{if
+                  platform.enabled
+                  "btn-small btn-flat sp-platform-toggle is-enabled"
+                  "btn-small btn-flat sp-platform-toggle is-disabled"
+                }}
               />
             </td>
             <td class="d-table__cell --controls">
-              <div class="d-table__cell-actions social-profile-platform-actions">
+              <div class="d-table__cell-actions">
                 <DButton
                   @action={{fn this.move index -1}}
                   @icon="arrow-up"
@@ -172,8 +162,8 @@ export default class SocialProfilePlatformsList extends Component {
                     "discourse_social_profile.admin.platforms.delete_in_use"
                     "discourse_social_profile.admin.platforms.delete_platform"
                   }}
-                  @disabled={{platform.usage_count}}
-                  class={{if platform.usage_count "btn-small btn-default sp-delete-disabled" "btn-small btn-danger"}}
+                  @disabled={{if platform.usage_count true false}}
+                  class="btn-small btn-danger sp-platform-delete"
                 />
               </div>
             </td>

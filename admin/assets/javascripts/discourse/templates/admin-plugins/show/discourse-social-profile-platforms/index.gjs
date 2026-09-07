@@ -67,12 +67,14 @@ export default <template>
     }
     .sp-platforms-page__table-shell {
       min-width: 0;
-      overflow-x: auto;
+      max-width: 100%;
+      overflow-x: hidden;
       padding: .25rem 0 0;
     }
     .sp-platforms-page__table-shell .social-profile-platforms-table {
       width: 100%;
-      min-width: 74rem;
+      max-width: 100%;
+      min-width: 0;
     }
     @media (max-width: 760px) {
       .sp-platforms-page__hero { flex-direction: column; }

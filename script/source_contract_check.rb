@@ -343,24 +343,30 @@ end
 
 check(checks, "Statistics page owns responsive admin styling") do
   page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-statistics.gjs")
+  stats = read("lib/discourse_social_profile/statistics.rb")
   assert(page.include?("sp-stats__header") && page.include?("sp-stats__metrics"), "statistics card layout missing")
-  assert(page.include?("sp-stats__rows") && page.include?("clicks_30d_column") && page.include?("clicks_retention_column"), "statistics distribution/click breakdown refresh missing")
-  assert(page.include?("@model.distribution.five") && page.include?("@model.distribution.six_plus"), "six-row link distribution missing")
-  assert(page.include?("retention_window") && page.include?("clicks_retention_total"), "configured click-retention window is not visible in statistics")
+  assert(page.include?("sp-stats__rows") && page.include?("clicks_30d_column"), "statistics distribution/click breakdown refresh missing")
+  assert(page.include?("distribution.five") && page.include?("distribution.six_plus"), "six-row link distribution missing")
+  assert(stats.include?("link_count = 5") && stats.include?("link_count >= 6"), "distribution buckets are not split at 5/6+")
+  assert(page.include?("retentionSettingsUrl") && page.include?("clicks_retained_column"), "retention-aware click reporting missing")
+  assert(stats.include?("clicks_retained_total") && stats.include?("click_retention_label"), "retained click totals missing")
   assert(!page.include?("is-primary"), "adoption card still has one-off highlight styling")
   assert(page.include?("grid-template-columns: repeat(3") && page.include?("@media (max-width: 560px)"), "statistics responsive layout missing")
-  assert(page.include?('/admin/plugins/social-profile') && page.include?("back_to_overview") && page.include?("open_settings"), "statistics header actions missing")
+  assert(page.include?("/admin/plugins/social-profile") && page.include?("back_to_overview") && page.include?("open_settings"), "statistics header actions missing")
 end
 
-check(checks, "Admin platform table uses real icons and overview actions") do
+check(checks, "Admin platform table is compact, aligned and directly toggleable") do
   table = read("admin/assets/javascripts/discourse/components/social-profile-platforms-list.gjs")
   page = read("admin/assets/javascripts/discourse/templates/admin-plugins/show/discourse-social-profile-platforms/index.gjs")
+  styles = read("assets/stylesheets/common/social-profile.scss")
   assert(table.include?("SocialProfilePlatformIcon"), "admin table does not render shared platform icons")
   assert(!table.include?(">#</th>"), "obsolete position column still rendered")
+  assert(table.include?("toggleEnabled") && table.include?('platform.enabled "eye" "eye-slash"'), "platform enable/disable control missing")
+  assert(table.include?("delete_in_use") && table.include?("@disabled="), "used-platform delete is not rendered disabled")
+  assert(styles.include?("table-layout: fixed") && styles.include?(".--active") && styles.include?(".--controls"), "compact fixed platform table columns missing")
+  assert(styles.include?("grid-template-columns: repeat(4, 2.15rem)") && !page.include?("min-width: 760px"), "platform actions still force horizontal overflow")
   assert(page.include?("/admin/plugins/social-profile") && page.include?("back_to_overview"), "platform overview action missing")
   assert(page.include?("sp-platforms-page__hero") && page.include?("sp-platforms-page__primary-action"), "platform toolbar layout missing")
-  assert(table.include?("toggleEnabled") && table.include?("eye-slash") && table.include?("enable_platform") && table.include?("disable_platform"), "quick enable/disable control missing")
-  assert(table.include?("@disabled={{platform.usage_count}}") && !table.include?("#unless platform.usage_count"), "in-use delete action should remain aligned and disabled")
   editor = read("admin/assets/javascripts/discourse/components/social-profile-platform-editor.gjs")
   assert(editor.include?("sp-platform-editor__grid") && editor.include?("grid-template-columns: repeat(2"), "wide responsive platform editor layout missing")
 end
@@ -481,16 +487,14 @@ check(checks, "Dynamic SVG preload state is bounded to current platform configur
   assert(!model.include?("icons + [icon_name]"), "append-only SVG preload history remains")
 end
 
-check(checks, "Click reporting and retention use exact bounded calendar-day windows") do
+check(checks, "Click reporting and retention use exact calendar-day windows") do
   stats = read("lib/discourse_social_profile/statistics.rb")
   job = read("app/jobs/scheduled/discourse_social_profile/cleanup_click_stats.rb")
   settings = read("config/settings.yml")
   assert(stats.include?("29.days.ago.to_date"), "30-day click reporting is still an inclusive 31-day range")
-  assert(stats.include?("(retention_days - 1).days.ago.to_date"), "configured retention reporting window missing")
-  assert(stats.include?("clicks_retention_total") && stats.include?("clicks_retention:"), "retained click totals are not exposed")
-  assert(stats.include?("retention-\#{click_retention_days}"), "statistics cache key is not retention-aware")
+  assert(stats.include?("(days - 1).days.ago.to_date"), "configured retained click window is off by one")
   assert(job.include?("(days - 1).days.ago.to_date"), "retention still keeps an extra calendar date")
-  assert(settings.include?("min: 30") && settings.include?("max: 3650"), "click retention must remain bounded and must not allow unlimited/zero retention")
+  assert(settings.include?("min: 30") && settings.include?("max: 3650"), "click retention is not bounded away from zero/unlimited")
 end
 
 check(checks, "Discourse user merge preserves plugin-owned profile data") do

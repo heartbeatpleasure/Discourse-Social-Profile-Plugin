@@ -6,8 +6,6 @@ module ::DiscourseSocialProfile
     CACHE_TTL = 5.minutes
     INVALID_AUDIT_LIMIT = 5000
     INVALID_AUDIT_BUDGET = 2.seconds
-    MIN_CLICK_RETENTION_DAYS = 30
-    MAX_CLICK_RETENTION_DAYS = 3650
 
     module_function
 
@@ -19,9 +17,10 @@ module ::DiscourseSocialProfile
     end
 
     def clear!
-      retention_days = click_retention_days
-      Discourse.cache.delete("#{CACHE_KEY_PREFIX}:clicks-0:retention-#{retention_days}")
-      Discourse.cache.delete("#{CACHE_KEY_PREFIX}:clicks-1:retention-#{retention_days}")
+      days = click_retention_days
+      [0, 1].each do |clicks_enabled|
+        Discourse.cache.delete("#{CACHE_KEY_PREFIX}:clicks-#{clicks_enabled}:retention-#{days}")
+      end
       true
     rescue Redis::BaseError => e
       Rails.logger.warn("[discourse-social-profile] statistics cache clear failed: #{e.class}")
@@ -38,10 +37,11 @@ module ::DiscourseSocialProfile
       total_links = Link.where(user_id: eligible_user_ids).count
       linked_users = Link.where(user_id: eligible_user_ids).distinct.count(:user_id)
       distribution = link_distribution
-      retention_days = click_retention_days
 
-      click_rows = click_statistics(retention_days)
+      retention_days = click_retention_days
+      click_rows = click_statistics
       clicks_by_platform = click_rows.index_by { |row| row[:platform_id] }
+      retained_clicks_by_platform = retained_click_counts(retention_days)
 
       usage =
         Platform
@@ -64,14 +64,14 @@ module ::DiscourseSocialProfile
               percentage_of_linked_users:
                 linked_users.positive? ? ((count.to_f / linked_users) * 100).round(1) : 0.0,
               clicks_30d: clicks_by_platform.dig(platform.id, :clicks_30d).to_i,
-              clicks_retention: clicks_by_platform.dig(platform.id, :clicks_retention).to_i,
+              clicks_retained: retained_clicks_by_platform[platform.id].to_i,
             }
           end
           .sort_by { |row| [-row[:users], row[:label].to_s.downcase] }
 
       invalid_audit = audit_invalid_links
       clicks_30d_total = click_rows.sum { |row| row[:clicks_30d].to_i }
-      clicks_retention_total = click_rows.sum { |row| row[:clicks_retention].to_i }
+      clicks_retained_total = retained_clicks_by_platform.values.sum.to_i
 
       {
         generated_at: Time.zone.now,
@@ -92,11 +92,12 @@ module ::DiscourseSocialProfile
         changed_links_30d: Link.where(user_id: eligible_user_ids).where("updated_at >= ?", 30.days.ago).count,
         distribution: distribution,
         platforms: usage,
-        clicks: click_rows.select { |row| row[:clicks_30d].positive? },
+        clicks: click_rows,
         clicks_30d_total: clicks_30d_total,
-        clicks_retention_total: clicks_retention_total,
+        clicks_retained_total: clicks_retained_total,
         click_retention_days: retention_days,
-        click_retention_matches_30d: retention_days == 30,
+        click_retention_label: click_retention_label(retention_days),
+        show_retention_clicks: retention_days > 30,
         click_tracking_enabled: SiteSetting.discourse_social_profile_track_clicks,
       }
     end
@@ -150,45 +151,45 @@ module ::DiscourseSocialProfile
       { invalid: invalid, audited: audited, truncated: truncated || timed_out, timed_out: timed_out }
     end
 
-    def click_statistics(retention_days = click_retention_days)
+    def click_retention_days
+      SiteSetting.discourse_social_profile_click_stats_retention_days.to_i.clamp(30, 3650)
+    end
+
+    def click_retention_label(days = click_retention_days)
+      if (days % 365).zero?
+        years = days / 365
+        "#{years} #{years == 1 ? "year" : "years"}"
+      else
+        "#{days} days"
+      end
+    end
+
+    def retained_click_counts(days = click_retention_days)
+      return {} unless SiteSetting.discourse_social_profile_track_clicks
+
+      start_date = (days - 1).days.ago.to_date
+      ClickStat.where("stat_date >= ?", start_date).group(:platform_id).sum(:click_count)
+    end
+
+    def click_statistics
       return [] unless SiteSetting.discourse_social_profile_track_clicks
 
-      # Calendar-day statistics: today plus the previous 29 dates is exactly 30
-      # days. Retention follows the same convention, so 365 means exactly 365
-      # stored/reportable calendar dates including today.
-      start_30d = 29.days.ago.to_date
-      start_retention = (retention_days - 1).days.ago.to_date
-      scope = ClickStat.where("stat_date >= ?", start_retention)
-      clicks_retention = scope.group(:platform_id).sum(:click_count)
-      clicks_30d = scope.where("stat_date >= ?", start_30d).group(:platform_id).sum(:click_count)
-      platform_ids = clicks_retention.keys | clicks_30d.keys
-      labels = Platform.where(id: platform_ids).pluck(:id, :label).to_h
-      total_30d = clicks_30d.values.sum.to_i
-      total_retention = clicks_retention.values.sum.to_i
-
-      platform_ids
-        .map do |platform_id|
-          count_30d = clicks_30d[platform_id].to_i
-          count_retention = clicks_retention[platform_id].to_i
+      # Calendar-day statistic: today plus the previous 29 dates is exactly 30
+      # days. Using 30.days.ago inclusively would silently report a 31-day window.
+      start_date = 29.days.ago.to_date
+      clicks = ClickStat.where("stat_date >= ?", start_date).group(:platform_id).sum(:click_count)
+      labels = Platform.where(id: clicks.keys).pluck(:id, :label).to_h
+      total = clicks.values.sum.to_i
+      clicks
+        .map do |platform_id, count|
           {
             platform_id: platform_id,
             label: labels[platform_id],
-            clicks_30d: count_30d,
-            clicks_retention: count_retention,
-            click_share_percentage:
-              total_30d.positive? ? ((count_30d.to_f / total_30d) * 100).round(1) : 0.0,
-            retention_click_share_percentage:
-              total_retention.positive? ? ((count_retention.to_f / total_retention) * 100).round(1) : 0.0,
+            clicks_30d: count,
+            click_share_percentage: total.positive? ? ((count.to_f / total) * 100).round(1) : 0.0,
           }
         end
-        .sort_by { |row| [-row[:clicks_retention], -row[:clicks_30d], row[:label].to_s.downcase] }
-    end
-
-    def click_retention_days
-      SiteSetting.discourse_social_profile_click_stats_retention_days.to_i.clamp(
-        MIN_CLICK_RETENTION_DAYS,
-        MAX_CLICK_RETENTION_DAYS,
-      )
+        .sort_by { |row| -row[:clicks_30d] }
     end
   end
 end
